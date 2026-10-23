@@ -1,0 +1,26 @@
+# Programmi "classici" CONSENTITI. Tutti gli altri vengono disinstallati, qualsiasi essi siano
+# (browser, giochi, strumenti, programmi installati dagli alunni nella propria cartella utente).
+#
+# Non vengono mai disinstallati da questa modalita':
+#  - i programmi con editore Microsoft, Intel, Realtek, NVIDIA, AMD, Synaptics, Qualcomm, MediaTek, Dolby
+#  - runtime, driver, componenti .NET, Redistributable, WebView2 e simili
+#  - gli aggiornamenti di Windows
+#
+# Una riga = un nome come appare in Impostazioni > App installate (o un pezzo con *).
+# Per consentire un altro programma aggiungi il suo nome. Il nome esatto lo trovi nel report
+# di diagnostica (sezione "PROGRAMMI INSTALLATI") e nella simulazione.
+# Se questo file e' vuoto (tutte righe con #), la modalita' non fa nulla sui programmi.
+#
+# Le cartelle in C:\Users\<utente>\AppData\Local\Programs (come Opera GX) sono confrontate
+# con questi stessi nomi: se il nome della cartella non corrisponde, viene rimossa.
+
+Adobe Acrobat*
+Google Chrome*
+Scratch*
+Java*
+
+# Samsung: ripristino e profili dello schermo
+Samsung Recovery Service*
+ColorEngine*
+Display Profile*
+Samsung Update Service*

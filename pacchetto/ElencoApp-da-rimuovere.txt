@@ -1,0 +1,99 @@
+# App di Microsoft Store da rimuovere per tutti gli utenti.
+# Configura-PC-Carrello.ps1 rimuove le righe senza # davanti.
+# Per tenere un'app metti un # all'inizio della riga; per rimuoverne un'altra toglilo.
+# Sono ammessi i caratteri jolly (*).
+# La rimozione NON si annulla con 6-Annulla-Configurazione.bat (le app si reinstallano dallo Store).
+# Con 5-Simula-Configurazione.bat vedi quali di queste app sono presenti, senza toccare nulla.
+#
+# Proposta del 22/10/2026, ricavata dal report del Samsung 750XED. Da rivedere insieme.
+
+# --- Intrattenimento e giochi
+Amazon.com.Amazon
+SpotifyAB.SpotifyMusic
+Microsoft.MicrosoftSolitaireCollection
+Microsoft.GamingApp
+Microsoft.XboxGamingOverlay
+Microsoft.XboxGameOverlay
+Microsoft.Xbox.TCUI
+Microsoft.XboxIdentityProvider
+Microsoft.XboxSpeechToTextOverlay
+Microsoft.ZuneMusic
+Microsoft.ZuneVideo
+Clipchamp.Clipchamp
+
+# --- Microsoft: app che gli alunni non usano
+Microsoft.549981C3F5F10
+Microsoft.BingNews
+Microsoft.BingWeather
+Microsoft.BingSearch
+Microsoft.GetHelp
+Microsoft.Getstarted
+Microsoft.MicrosoftJournal
+Microsoft.MountainDwellings
+Microsoft.People
+Microsoft.PowerAutomateDesktop
+Microsoft.Todos
+Microsoft.Windows.DevHome
+Microsoft.WindowsFeedbackHub
+Microsoft.WindowsMaps
+Microsoft.WindowsTerminal
+Microsoft.YourPhone
+microsoft.windowscommunicationsapps
+MicrosoftCorporationII.MicrosoftFamily
+
+# --- Samsung: app di contorno
+SAMSUNGELECTRONICSCO.LTD.Bixby
+SAMSUNGELECTRONICSCO.LTD.LiveMessage
+SAMSUNGELECTRONICSCO.LTD.PCGallery
+SAMSUNGELECTRONICSCO.LTD.PrivateShare
+SAMSUNGELECTRONICSCO.LTD.SamsungCarePlusLauncher
+SAMSUNGELECTRONICSCO.LTD.SamsungCloudBluetoothSync
+SAMSUNGELECTRONICSCO.LTD.SamsungFileTracker
+SAMSUNGELECTRONICSCO.LTD.SamsungPCCleaner
+SAMSUNGELECTRONICSCO.LTD.SamsungQuickSearch
+SAMSUNGELECTRONICSCO.LTD.SamsungScreenRecording
+SAMSUNGELECTRONICSCO.LTD.SamsungWelcome
+SAMSUNGELECTRONICSCO.LTD.SmartSwitchforGalaxyBook
+SAMSUNGELECTRONICSCO.LTD.SmartThingsWindows
+SAMSUNGELECTRONICSCO.LTD.StudioPlus
+SAMSUNGELECTRONICSCoLtd.MultiControl
+SAMSUNGELECTRONICSCoLtd.SamsungContinuityService
+SAMSUNGELECTRONICSCoLtd.SamsungFlux
+SAMSUNGELECTRONICSCoLtd.SamsungNotes
+SAMSUNGELECTRONICSCoLtd.SamsungQuickShare
+SAMSUNGELECTRONICSCoLtd.SecondScreen
+Sidia.LiveWallpaper
+ReincubateLtd.CamoStudio
+
+# =====================================================================
+# TENUTE PER ORA (togli il # per rimuoverle)
+# =====================================================================
+# Samsung: servono a impostazioni, aggiornamenti driver e ripristino
+#SAMSUNGELECTRONICSCO.LTD.SamsungSettings1.5
+#SAMSUNGELECTRONICSCO.LTD.SamsungSettingsRuntime
+#SAMSUNGELECTRONICSCO.LTD.SamsungUpdate
+#SAMSUNGELECTRONICSCO.LTD.SamsungRecovery
+#SAMSUNGELECTRONICSCO.LTD.SamsungSecurity1.2
+#SAMSUNGELECTRONICSCO.LTD.SamsungAccount
+
+# Strumenti Windows utili in classe
+#Microsoft.Paint
+#Microsoft.Windows.Photos
+#Microsoft.WindowsCalculator
+#Microsoft.WindowsNotepad
+#Microsoft.ScreenSketch
+#Microsoft.WindowsCamera
+#Microsoft.WindowsSoundRecorder
+#Microsoft.MicrosoftStickyNotes
+#Microsoft.Whiteboard
+#Microsoft.WindowsAlarms
+#ScratchFoundation.ScratchDesktop
+
+# Assistenza remota: utile a te per aiutare un PC a distanza
+#MicrosoftCorporationII.QuickAssist
+
+# Microsoft Store: se lo rimuovi gli alunni non possono installare app dallo Store,
+# ma le app dello Store non si aggiornano piu' da sole. Decisione da prendere con calma.
+#Microsoft.WindowsStore
+#Microsoft.StorePurchaseApp
+#Microsoft.GamingServices

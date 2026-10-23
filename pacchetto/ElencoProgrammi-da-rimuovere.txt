@@ -1,0 +1,40 @@
+# Programmi "classici" (quelli di Impostazioni > App > App installate) da disinstallare.
+# Configura-PC-Carrello.ps1 li disinstalla in modo silenzioso se hanno una procedura di
+# disinstallazione automatica; altrimenti scrive nel log "da disinstallare a mano".
+# Una riga = un nome (o un pezzo di nome con *). Metti # davanti per tenere un programma.
+# Con 5-Simula-Configurazione.bat vedi cosa e' presente, senza toccare nulla.
+#
+# Proposta del 22/10/2026, ricavata dal report del Samsung 750XED. Da rivedere insieme.
+
+# --- Browser e programmi non necessari o vecchi (con falle di sicurezza note)
+# Opera GX e' installato nelle cartelle dell'utente: lo script lo toglie da li'.
+Opera GX*
+WinRAR*
+Mozilla Firefox*
+Mozilla Maintenance Service*
+
+# --- Samsung: servizi di contorno
+Quick Search Service*
+Samsung File Tracker Service*
+Live Wallpaper Service*
+Studio mode*
+Galaxy Book Smart Switch service*
+ContinuityMSOfficeAddIn*
+
+# --- Copilot (app basata su Edge). Se non si disinstalla da solo, va tolto a mano.
+Copilot*
+
+# =====================================================================
+# TENUTI PER ORA (togli il # per disinstallarli)
+# =====================================================================
+#Adobe Acrobat*
+#Google Chrome*
+#Microsoft Edge*
+#Microsoft 365*
+#Microsoft OneNote*
+#Microsoft Teams Meeting Add-in*
+#Samsung Recovery Service*
+#ColorEngine*
+#Display Profile*
+#Microsoft GameInput*
+#Microsoft Update Health Tools*

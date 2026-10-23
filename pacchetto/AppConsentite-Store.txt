@@ -1,0 +1,23 @@
+# App di Microsoft Store CONSENTITE. Tutte le altre app di Store terze parti vengono rimosse,
+# qualsiasi esse siano (giochi, Spotify, TikTok, app del produttore, ecc.).
+#
+# Non vengono mai rimosse da questa modalita':
+#  - le app Microsoft (Microsoft.*, MicrosoftWindows.*, MicrosoftCorporationII.*)
+#  - i componenti di sistema (nomi con "Runtime" o "Extension")
+# Per togliere app Microsoft che non servono usa ElencoApp-da-rimuovere.txt.
+#
+# Una riga = un nome (o un pezzo con *). Per consentire un'altra app aggiungi il suo nome.
+# I nomi si vedono nel report di diagnostica (sezione "App di Microsoft Store") e nella
+# simulazione. Se questo file e' vuoto (tutte righe con #), la modalita' non fa nulla sulle app di Store.
+
+ScratchFoundation.ScratchDesktop
+
+# Driver e utilita' del computer
+RealtekSemiconductorCorp.RealtekAudioControl
+AppUp.IntelGraphicsExperience
+DolbyLaboratories.DolbyAccess
+SAMSUNGELECTRONICSCO.LTD.SamsungSettings*
+SAMSUNGELECTRONICSCO.LTD.SamsungUpdate
+SAMSUNGELECTRONICSCO.LTD.SamsungRecovery
+SAMSUNGELECTRONICSCO.LTD.SamsungSecurity*
+SAMSUNGELECTRONICSCO.LTD.SamsungAccount
