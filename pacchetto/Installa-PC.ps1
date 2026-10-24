@@ -12,7 +12,7 @@
        Le password sono lette da Impostazioni-scuola.txt (create al primo uso).
     4. Cartella C:\Lavori, sfondo con il numero del PC, blocchi leggeri per Studente,
        desktop pulito a ogni accesso (il contenuto va in C:\Backup-Carrello\Pulizie).
-    5. Policy per Chrome ed Edge, OneDrive spento, niente schermate di primo accesso.
+    5. Policy per Chrome (sempre in modalita' ospite, Google, predefinito) ed Edge, OneDrive spento, niente schermate di primo accesso.
     6. Gestione remota (SSH con chiave) per amministrare il PC da un altro computer.
     7. Wi-Fi: connessione automatica delle reti salvate.
     8. Rimozione di app e programmi non consentiti (vedi gli elenchi .txt).
@@ -59,8 +59,11 @@ $StateFile   = Join-Path $Base 'stato.json'
 $ScriptCopy  = Join-Path $Base 'Installa-PC.ps1'
 $WallFile    = Join-Path $Base 'sfondo.png'
 $TaskbarXml  = Join-Path $Base 'TaskbarLayout.xml'
+$TaskbarXmlAdmin = Join-Path $Base 'TaskbarLayoutAdmin.xml'
 $TaskName    = 'Carrello-Logon'
 $UpdTaskName = 'Carrello-Aggiorna'
+$ClassTaskName = 'Carrello-Classe'
+$NetTaskName = 'Carrello-Rete'
 $UpdScript   = Join-Path $Base 'Aggiorna-PC.ps1'
 $BuildFile   = Join-Path $Base 'build.txt'
 $HiveTmp     = 'CarrelloTmp'
@@ -72,6 +75,15 @@ $studentPw   = $null
 $adminPw     = $null
 
 # ======================================================== utilita'
+# firma dell'autore, mostrata all'avvio e alla fine e salvata sul PC
+$Firma = @('Installatore carrelli PC - realizzato da Paride Porpora', 'Primo Istituto Comprensivo di Mercato San Severino')
+function Show-Banner {
+    Write-Host ''
+    Write-Host '==============================================================' -ForegroundColor Cyan
+    Write-Host ('  {0}  (v{1})' -f $Firma[0], $Versione) -ForegroundColor Cyan
+    Write-Host ('  {0}' -f $Firma[1]) -ForegroundColor Cyan
+    Write-Host '==============================================================' -ForegroundColor Cyan
+}
 function Write-Log([string]$msg, [string]$level = 'INFO') {
     $line = '{0} [{1}] {2}' -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'), $level, $msg
     if (-not $Logon) { Write-Host $line }
@@ -94,7 +106,7 @@ function Set-RegValue([string]$Root, [string]$Sub, [string]$Name, [string]$Type,
     }
     try {
         if (-not (Test-Path -LiteralPath $full)) { New-Item -Path $full -Force | Out-Null }
-        New-ItemProperty -LiteralPath $full -Name $Name -PropertyType $Type -Value $Value -Force | Out-Null
+        New-ItemProperty -LiteralPath $full -Name $Name -PropertyType $Type -Value $Value -Force -ErrorAction Stop | Out-Null
     } catch { Write-Log "Errore scrivendo $full : $Name : $($_.Exception.Message)" 'ERRORE' }
 }
 function Remove-RegValue([string]$Root, [string]$Sub, [string]$Name) {
@@ -135,7 +147,7 @@ function Initialize-BackupDir {
 function Move-ToBackup([string]$path, [string]$label) {
     if ($Simula -or -not (Test-Path -LiteralPath $path)) { return }
     $items = @(Get-ChildItem -LiteralPath $path -Force -ErrorAction SilentlyContinue |
-               Where-Object { $_.Name -ne 'desktop.ini' -and $_.Name -ne 'Lavori.lnk' })
+               Where-Object { $_.Name -ne 'desktop.ini' -and $_.Name -ne 'Lavori.lnk' -and $_.Name -ne 'COME USARE IL PC.txt' -and $_.Name -ne 'Cambia classe.lnk' })
     if ($items.Count -eq 0) { return }
     Initialize-BackupDir
     $dest = Join-Path $BackupDir ('Pulizie\{0}\{1}' -f (Get-Date -Format 'yyyyMMdd-HHmm'), $label)
@@ -190,7 +202,7 @@ $PolAD  = 'Software\Microsoft\Windows\CurrentVersion\Policies\ActiveDesktop'
 $CDM    = 'Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager'
 
 $blockedExe = 'powershell.exe', 'powershell_ise.exe', 'pwsh.exe', 'cmd.exe', 'regedit.exe',
-              'WindowsTerminal.exe', 'wt.exe', 'wsl.exe', 'mmc.exe'
+              'WindowsTerminal.exe', 'wt.exe', 'wsl.exe', 'mmc.exe', 'msedge.exe'
 
 $UserPolicies = New-Object System.Collections.Generic.List[object]
 function Add-UP([string]$p, [string]$n, [string]$t, $v) { $UserPolicies.Add(@{ P = $p; N = $n; T = $t; V = $v }) }
@@ -206,6 +218,13 @@ Add-UP $PolSys 'DisableTaskMgr'       'DWord' 1
 Add-UP $PolSys 'Wallpaper'            'String' $WallFile
 Add-UP $PolSys 'WallpaperStyle'       'String' '10'
 Add-UP $PolAD  'NoChangingWallPaper'  'DWord' 1
+Add-UP 'Software\Policies\Microsoft\WindowsStore' 'RemoveWindowsStore' 'DWord' 1
+# salvaschermo standard (vuoto, senza password, 10 minuti): l'alunno non lo puo' cambiare
+$PolScr = 'Software\Policies\Microsoft\Windows\Control Panel\Desktop'
+Add-UP $PolScr 'ScreenSaveActive'     'String' '1'
+Add-UP $PolScr 'ScreenSaveTimeOut'    'String' '600'
+Add-UP $PolScr 'SCRNSAVE.EXE'         'String' 'C:\Windows\System32\scrnsave.scr'
+Add-UP $PolScr 'ScreenSaverIsSecure'  'String' '0'
 
 $UserDefaults = New-Object System.Collections.Generic.List[object]
 function Add-UD([string]$p, [string]$n, [string]$t, $v) { $UserDefaults.Add(@{ P = $p; N = $n; T = $t; V = $v }) }
@@ -232,12 +251,17 @@ $MachinePolicies = New-Object System.Collections.Generic.List[object]
 function Add-MP([string]$p, [string]$n, [string]$t, $v) { $MachinePolicies.Add(@{ P = $p; N = $n; T = $t; V = $v }) }
 Add-MP 'SOFTWARE\Policies\Microsoft\Windows\OneDrive' 'DisableFileSyncNGSC' 'DWord' 1
 Add-MP 'SOFTWARE\Policies\Microsoft\Windows\OOBE' 'DisablePrivacyExperience' 'DWord' 1
-Add-MP 'SOFTWARE\Policies\Microsoft\Dsh' 'AllowNewsAndInterests' 'DWord' 0
 Add-MP 'SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon' 'EnableFirstLogonAnimation' 'DWord' 0
 Add-MP 'SOFTWARE\Microsoft\WindowsUpdate\UX\Settings' 'ActiveHoursStart' 'DWord' 7
 Add-MP 'SOFTWARE\Microsoft\WindowsUpdate\UX\Settings' 'ActiveHoursEnd' 'DWord' 19
 Add-MP 'SOFTWARE\Microsoft\WindowsUpdate\UX\Settings' 'SmartActiveHoursState' 'DWord' 2
 Add-MP 'SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU' 'NoAutoRebootWithLoggedOnUsers' 'DWord' 1
+# Windows Update sempre attivo e automatico (scarica e installa da solo), anche gli altri prodotti Microsoft (Office)
+Add-MP 'SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU' 'NoAutoUpdate' 'DWord' 0
+Add-MP 'SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU' 'AUOptions' 'DWord' 4
+Add-MP 'SOFTWARE\Microsoft\WindowsUpdate\UX\Settings' 'AllowMUUpdateService' 'DWord' 1
+# Delivery Optimization: i PC si scambiano gli aggiornamenti sulla rete locale (meno traffico verso Internet)
+Add-MP 'SOFTWARE\Policies\Microsoft\Windows\DeliveryOptimization' 'DODownloadMode' 'DWord' 1
 Add-MP 'SYSTEM\CurrentControlSet\Control\Session Manager\Power' 'HiberbootEnabled' 'DWord' 0
 foreach ($b in 'SOFTWARE\Policies\Google\Chrome', 'SOFTWARE\Policies\Microsoft\Edge') {
     Add-MP $b 'PasswordManagerEnabled'       'DWord' 0
@@ -252,6 +276,20 @@ foreach ($b in 'SOFTWARE\Policies\Google\Chrome', 'SOFTWARE\Policies\Microsoft\E
 }
 Add-MP 'SOFTWARE\Policies\Google\Chrome' 'BackgroundModeEnabled' 'DWord' 0
 Add-MP 'SOFTWARE\Policies\Microsoft\Edge' 'BackgroundModeEnabled' 'DWord' 0
+# Copilot spento; Edge non si reinstalla da solo
+Add-MP 'SOFTWARE\Policies\Microsoft\Windows\WindowsCopilot' 'TurnOffWindowsCopilot' 'DWord' 1
+Add-MP 'SOFTWARE\Policies\Microsoft\EdgeUpdate' 'Install{56EB18F8-B008-4CBD-B6D2-8C97FE7E9062}' 'DWord' 0
+Add-MP 'SOFTWARE\Microsoft\EdgeUpdate' 'DoNotUpdateToEdgeWithChromium' 'DWord' 1
+Add-MP 'SOFTWARE\Policies\Microsoft\EdgeUpdate' 'CreateDesktopShortcutDefault' 'DWord' 0
+# Chrome: sempre in modalita' ospite (alla chiusura cancella cronologia, cookie e dati), Google come motore di ricerca
+$ChromeP = 'SOFTWARE\Policies\Google\Chrome'
+Add-MP $ChromeP 'BrowserGuestModeEnabled'  'DWord' 1
+Add-MP $ChromeP 'BrowserGuestModeEnforced' 'DWord' 1
+Add-MP $ChromeP 'DefaultSearchProviderEnabled'   'DWord'  1
+Add-MP $ChromeP 'DefaultSearchProviderName'      'String' 'Google'
+Add-MP $ChromeP 'DefaultSearchProviderKeyword'   'String' 'google.com'
+Add-MP $ChromeP 'DefaultSearchProviderSearchURL' 'String' 'https://www.google.com/search?q={searchTerms}'
+Add-MP $ChromeP 'DefaultBrowserSettingEnabled'   'DWord'  1
 Add-MP 'SOFTWARE\Policies\Microsoft\Edge' 'StartupBoostEnabled'   'DWord' 0
 Add-MP 'SOFTWARE\Policies\Microsoft\Edge' 'HideFirstRunExperience' 'DWord' 1
 Add-MP 'SOFTWARE\Policies\Microsoft\Edge' 'HubsSidebarEnabled'    'DWord' 0
@@ -298,16 +336,16 @@ function Use-UserHive([string]$sid, [scriptblock]$action) {
     return $true
 }
 
-function New-StudentProfile([string]$sid) {
-    if ($Simula) { Write-Log '[SIMULAZIONE] creerei il profilo di Studente'; return }
+function New-StudentProfile([string]$sid, [string]$userName = $StudentName) {
+    if ($Simula) { Write-Log "[SIMULAZIONE] creerei il profilo di $userName"; return }
     try {
         Add-Type -Namespace Carrello -Name Profilo -MemberDefinition @'
 [DllImport("userenv.dll", CharSet=CharSet.Unicode)]
 public static extern int CreateProfile(string pszUserSid, string pszUserName, System.Text.StringBuilder pszProfilePath, uint cchProfilePath);
 '@ -ErrorAction Stop
         $sb = New-Object System.Text.StringBuilder 260
-        $hr = [Carrello.Profilo]::CreateProfile($sid, $StudentName, $sb, 260)
-        Write-Log ("Creazione profilo di Studente: esito 0x{0:X}" -f $hr)
+        $hr = [Carrello.Profilo]::CreateProfile($sid, $userName, $sb, 260)
+        Write-Log ("Creazione profilo di {0}: esito 0x{1:X}" -f $userName, $hr)
     } catch { Write-Log "Profilo non creato ora (verra' creato al primo accesso): $($_.Exception.Message)" 'AVVISO' }
 }
 
@@ -345,15 +383,15 @@ function New-WallpaperImage([string]$path, [string]$label, [int]$cart) {
             $br = New-Object System.Drawing.Drawing2D.LinearGradientBrush($rect, [System.Drawing.Color]::FromArgb(255, 16, 42, 96), [System.Drawing.Color]::FromArgb(255, 40, 100, 170), [single]45)
             $g.FillRectangle($br, $rect)
         }
-        # etichetta in alto a destra
-        $font = New-Object System.Drawing.Font('Segoe UI', 72, [System.Drawing.FontStyle]::Bold, [System.Drawing.GraphicsUnit]::Pixel)
+        # etichetta in alto a destra, senza rettangolo: testo semitrasparente con una leggera ombra
+        if ($label -match '^C(\d+)-(\d+)$') { $label = 'PC {0} del Carrello {1}' -f [int]$Matches[2], [int]$Matches[1] }
+        $font = New-Object System.Drawing.Font('Segoe UI Semibold', 54, [System.Drawing.FontStyle]::Regular, [System.Drawing.GraphicsUnit]::Pixel)
         $size = $g.MeasureString($label, $font)
-        $padX = 36; $padY = 14
-        $bw = $size.Width + 2 * $padX; $bh = $size.Height + 2 * $padY
-        $bx = $w - $bw - 40; $by = 40
-        $brush = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb(150, 10, 20, 40))
-        $g.FillRectangle($brush, [single]$bx, [single]$by, [single]$bw, [single]$bh)
-        $g.DrawString($label, $font, [System.Drawing.Brushes]::White, [single]($bx + $padX), [single]($by + $padY))
+        $tx = $w - $size.Width - 50; $ty = 36
+        $shadow = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb(110, 0, 0, 0))
+        $white  = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb(205, 255, 255, 255))
+        $g.DrawString($label, $font, $shadow, [single]($tx + 3), [single]($ty + 3))
+        $g.DrawString($label, $font, $white,  [single]$tx,        [single]$ty)
         $bmp.Save($path, [System.Drawing.Imaging.ImageFormat]::Png)
         $g.Dispose(); $bmp.Dispose()
         Write-Log ("Sfondo creato con il numero {0} (immagine: {1})" -f $label, $(if ($src) { Split-Path $src -Leaf } else { 'sfumatura' }))
@@ -382,24 +420,67 @@ function Install-GeoGebra {
     } catch { Write-Log "GeoGebra non installato: $($_.Exception.Message)" 'AVVISO' }
 }
 
+# Chrome (modalita' ospite): senza queste opzioni a ogni apertura chiede di scegliere il motore di ricerca
+function Set-ChromeShortcutArgs {
+    if ($Simula) { Write-Log '[SIMULAZIONE] metterei le opzioni nel collegamento di Chrome'; return }
+    $chromeArgs = '--disable-search-engine-choice-screen --no-first-run --no-default-browser-check'
+    try {
+        $ws = New-Object -ComObject WScript.Shell
+        $targets = @(Get-ChildItem (Join-Path $env:ProgramData 'Microsoft\Windows\Start Menu\Programs') -Recurse -Filter 'Google Chrome.lnk' -ErrorAction SilentlyContinue)
+        $targets += @(Get-ChildItem 'C:\Users\Studente' -Recurse -Filter 'Google Chrome.lnk' -Force -ErrorAction SilentlyContinue | Where-Object { $_.FullName -like '*\User Pinned\TaskBar\*' -or $_.FullName -like '*\Desktop\*' })
+        foreach ($t in $targets) {
+            $l = $ws.CreateShortcut($t.FullName)
+            if ($l.Arguments -notlike '*disable-search-engine-choice-screen*') { $l.Arguments = $chromeArgs; $l.Save() }
+        }
+        Write-Log ("Chrome: opzioni di avvio impostate in {0} collegamenti" -f $targets.Count)
+    } catch { Write-Log "Opzioni di Chrome non impostate: $($_.Exception.Message)" 'AVVISO' }
+}
+
 # barra delle applicazioni: Word, Excel, GeoGebra, Chrome, Calcolatrice, Scratch (solo quelli installati)
-function New-TaskbarLayout {
+function New-TaskbarLayout([string]$Kind = 'Studente') {
+    Set-ChromeShortcutArgs
     if ($Simula) { Write-Log '[SIMULAZIONE] creerei il layout della barra delle applicazioni'; return }
     $sm = Join-Path $env:ProgramData 'Microsoft\Windows\Start Menu\Programs'
     $pins = New-Object System.Collections.Generic.List[string]
     $startPins = New-Object System.Collections.Generic.List[object]
-    foreach ($pat in 'Word.lnk', 'Excel.lnk', 'GeoGebra*.lnk', 'Google Chrome.lnk', '#CALC#', 'Scratch*.lnk') {
+    $patterns = if ($Kind -eq 'Admin') { @('#EXPLORER#', 'Google Chrome.lnk', 'Word.lnk', 'Excel.lnk', '#POWERSHELL#', '#SETTINGS#') }
+                else { @('Word.lnk', 'Excel.lnk', 'PowerPoint.lnk', 'GeoGebra*.lnk', 'Google Chrome.lnk', '#CALC#', 'Scratch*.lnk') }
+    foreach ($pat in $patterns) {
+        if ($pat -eq '#EXPLORER#') {
+            $pins.Add('        <taskbar:DesktopApp DesktopApplicationID="Microsoft.Windows.Explorer" />')
+            $startPins.Add('{"desktopAppId":"Microsoft.Windows.Explorer"}')
+            continue
+        }
+        if ($pat -eq '#POWERSHELL#') {
+            # il collegamento di PowerShell e' per utente: se ne crea uno nostro
+            $psl = Join-Path $Base 'Windows PowerShell.lnk'
+            try {
+                $w = New-Object -ComObject WScript.Shell
+                $l = $w.CreateShortcut($psl)
+                $l.TargetPath = "$env:WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe"
+                $l.IconLocation = "$env:WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe,0"
+                $l.Save()
+                $pins.Add(('        <taskbar:DesktopApp DesktopApplicationLinkPath="{0}" />' -f $psl))
+                $startPins.Add('{"desktopAppLink":' + (ConvertTo-Json -InputObject $psl.Replace($env:ProgramData, '%ALLUSERSPROFILE%') -Compress) + '}')
+            } catch { Write-Log "Collegamento di PowerShell non creato: $($_.Exception.Message)" 'AVVISO' }
+            continue
+        }
+        if ($pat -eq '#SETTINGS#') {
+            $pins.Add('        <taskbar:UWA AppUserModelID="windows.immersivecontrolpanel_cw5n1h2txyewy!microsoft.windows.immersivecontrolpanel" />')
+            $startPins.Add('{"packagedAppId":"windows.immersivecontrolpanel_cw5n1h2txyewy!microsoft.windows.immersivecontrolpanel"}')
+            continue
+        }
         if ($pat -eq '#CALC#') {
             if (Get-AppxPackage -AllUsers -Name 'Microsoft.WindowsCalculator' -ErrorAction SilentlyContinue) {
                 $pins.Add('        <taskbar:UWA AppUserModelID="Microsoft.WindowsCalculator_8wekyb3d8bbwe!App" />')
-                $startPins.Add(@{ packagedAppId = 'Microsoft.WindowsCalculator_8wekyb3d8bbwe!App' })
+                $startPins.Add('{"packagedAppId":' + (ConvertTo-Json -InputObject 'Microsoft.WindowsCalculator_8wekyb3d8bbwe!App' -Compress) + '}')
             }
             continue
         }
         $f = Get-ChildItem -LiteralPath $sm -Recurse -Filter $pat -ErrorAction SilentlyContinue | Select-Object -First 1
         if ($f) {
             $pins.Add(('        <taskbar:DesktopApp DesktopApplicationLinkPath="{0}" />' -f $f.FullName))
-            $startPins.Add(@{ desktopAppLink = $f.FullName.Replace($env:ProgramData, '%ALLUSERSPROFILE%') })
+            $startPins.Add('{"desktopAppLink":' + (ConvertTo-Json -InputObject $f.FullName.Replace($env:ProgramData, '%ALLUSERSPROFILE%') -Compress) + '}')
         }
         else { Write-Log "Barra: collegamento non trovato per $pat (non viene aggiunto)" 'AVVISO' }
     }
@@ -413,19 +494,23 @@ function New-TaskbarLayout {
         '    </defaultlayout:TaskbarLayout>',
         '  </CustomTaskbarLayoutCollection>',
         '</LayoutModificationTemplate>')
-    Set-Content -LiteralPath $TaskbarXml -Value ($lines -join "`r`n") -Encoding UTF8
-    $script:StartPinsJson = (@{ pinnedList = @($startPins) } | ConvertTo-Json -Depth 4)
-    Write-Log ("Layout della barra e di Start creato ({0} icone)" -f $pins.Count)
+    $xmlOut = if ($Kind -eq 'Admin') { $TaskbarXmlAdmin } else { $TaskbarXml }
+    Set-Content -LiteralPath $xmlOut -Value ($lines -join "`r`n") -Encoding UTF8
+    # JSON scritto a mano: ConvertTo-Json di Windows PowerShell 5.1 si ferma con questo elenco
+    $script:StartPinsJson = '{"pinnedList":[' + (($startPins.ToArray()) -join ',') + ']}'
+    Write-Log ("Layout della barra e di Start ({0}) creato: {1} icone" -f $Kind, $pins.Count)
 }
 
 # il layout di Start e della barra si applica al PRIMO accesso di un profilo nuovo, partendo dal profilo Default
-function Set-DefaultLayout {
+function Set-DefaultLayout([string]$xml = $TaskbarXml, [bool]$ConStart = $true) {
     if ($Simula) { Write-Log '[SIMULAZIONE] metterei il layout di Start e barra nel profilo Default'; return }
     try {
         $shell = 'C:\Users\Default\AppData\Local\Microsoft\Windows\Shell'
         New-Item -ItemType Directory -Path $shell -Force | Out-Null
-        Copy-Item -LiteralPath $TaskbarXml -Destination (Join-Path $shell 'LayoutModification.xml') -Force
-        if ($script:StartPinsJson) { Set-Content -LiteralPath (Join-Path $shell 'LayoutModification.json') -Value $script:StartPinsJson -Encoding UTF8 }
+        Copy-Item -LiteralPath $xml -Destination (Join-Path $shell 'LayoutModification.xml') -Force
+        # l'elenco di Start (json) lo usa solo l'amministratore: per Studente un json fa comparire i riquadri promossi da Windows (WhatsApp, Xbox, Solitario...)
+        if ($ConStart -and $script:StartPinsJson) { Set-Content -LiteralPath (Join-Path $shell 'LayoutModification.json') -Value $script:StartPinsJson -Encoding UTF8 }
+        else { Remove-Item -LiteralPath (Join-Path $shell 'LayoutModification.json') -Force -ErrorAction SilentlyContinue }
     } catch { Write-Log "Layout nel profilo Default non scritto: $($_.Exception.Message)" 'AVVISO' }
 }
 function Clear-DefaultLayout {
@@ -435,10 +520,80 @@ function Clear-DefaultLayout {
     Remove-Item -LiteralPath (Join-Path $shell 'LayoutModification.json') -Force -ErrorAction SilentlyContinue
 }
 
+# Chrome come browser predefinito (associazioni predefinite di Windows, riapplicate a ogni accesso)
+function Set-DefaultBrowser {
+    $xmlPath = Join-Path $Base 'AssociazioniPredefinite.xml'
+    if ($Simula) { Write-Log '[SIMULAZIONE] imposterei Chrome come browser predefinito'; return }
+    try {
+        $x = @('<?xml version="1.0" encoding="UTF-8"?>', '<DefaultAssociations>')
+        foreach ($a in '.htm', '.html', 'http', 'https') { $x += ('  <Association Identifier="{0}" ProgId="ChromeHTML" ApplicationName="Google Chrome" />' -f $a) }
+        $x += '</DefaultAssociations>'
+        Set-Content -LiteralPath $xmlPath -Value ($x -join "`r`n") -Encoding UTF8
+        Set-RegValue $HKLM 'SOFTWARE\Policies\Microsoft\Windows\System' 'DefaultAssociationsConfiguration' 'String' $xmlPath
+        & dism.exe /Online /Import-DefaultAppAssociations:"$xmlPath" | Out-Null
+        Write-Log 'Chrome impostato come browser predefinito (dal prossimo accesso)'
+    } catch { Write-Log "Browser predefinito non impostato: $($_.Exception.Message)" 'AVVISO' }
+}
+# amministratore: stesso aspetto (Start a sinistra, niente widget/Copilot/suggerimenti, sfondo con il numero) + impostazioni utili a chi gestisce il PC
+function Set-AdminConfig([string]$root) {
+    foreach ($p in $UserDefaults) { Set-RegValue $root $p.P $p.N $p.T $p.V }
+    $adv = 'Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced'
+    Set-RegValue $root $adv 'HideFileExt'     'DWord' 0   # mostra le estensioni dei file
+    Set-RegValue $root $adv 'Hidden'          'DWord' 1   # mostra file e cartelle nascosti
+    Set-RegValue $root $adv 'LaunchTo'        'DWord' 1   # Esplora file si apre su "Questo PC"
+    Set-RegValue $root $adv 'ShowStatusBar'   'DWord' 1
+    Set-RegValue $root $adv 'DisablePreviewDesktop' 'DWord' 0
+    Set-RegValue $root 'Software\Microsoft\Windows\CurrentVersion\Explorer' 'ShowFrequent' 'DWord' 0
+    Set-RegValue $root 'Software\Microsoft\Windows\CurrentVersion\Explorer' 'ShowRecent'   'DWord' 0
+    Set-RegValue $root 'Software\Microsoft\Windows\CurrentVersion\Search' 'SearchboxTaskbarMode' 'DWord' 1
+}
+# profilo dell'amministratore GIA' esistente: barra e Start si rifanno con il layout dell'amministratore (una volta sola)
+function Reset-AdminShell([string]$sid) {
+    if ($Simula) { Write-Log "[SIMULAZIONE] rifarei barra e Start dell'amministratore"; return }
+    try {
+        $prof = (Get-CimInstance Win32_UserProfile -ErrorAction SilentlyContinue | Where-Object { $_.SID -eq $sid }).LocalPath
+        if (-not $prof) { return }
+        $mark = $false
+        [void](Use-UserHive $sid { param($root) if ((Get-ItemProperty -Path "$root\Software\Carrello" -Name 'LayoutAdmin' -ErrorAction SilentlyContinue).LayoutAdmin -eq '1') { $script:markFound = $true } })
+        if ($script:markFound) { return }
+        $sh = Join-Path $prof 'AppData\Local\Microsoft\Windows\Shell'
+        New-Item -ItemType Directory -Path $sh -Force | Out-Null
+        Copy-Item -LiteralPath $TaskbarXmlAdmin -Destination (Join-Path $sh 'LayoutModification.xml') -Force
+        if ($script:AdminPinsJson) { Set-Content -LiteralPath (Join-Path $sh 'LayoutModification.json') -Value $script:AdminPinsJson -Encoding UTF8 }
+        Remove-Item -LiteralPath (Join-Path $prof 'AppData\Local\Packages\Microsoft.Windows.StartMenuExperienceHost_cw5n1h2txyewy\LocalState\start2.bin') -Force -ErrorAction SilentlyContinue
+        [void](Use-UserHive $sid { param($root)
+            Remove-Item -Path "$root\Software\Microsoft\Windows\CurrentVersion\Explorer\Taskband" -Recurse -Force -ErrorAction SilentlyContinue
+            New-Item -Path "$root\Software\Carrello" -Force | Out-Null
+            New-ItemProperty -Path "$root\Software\Carrello" -Name 'LayoutAdmin' -PropertyType String -Value '1' -Force | Out-Null })
+        if ($env:USERNAME -eq $AdminName) {
+            Stop-Process -Name StartMenuExperienceHost -Force -ErrorAction SilentlyContinue
+            Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue   # si riavvia da solo
+        }
+        Write-Log "Barra e Start dell'amministratore rifatti"
+    } catch { Write-Log "Barra dell'amministratore non rifatta: $($_.Exception.Message)" 'AVVISO' }
+}
 function Set-MachineConfig {
     foreach ($p in $MachinePolicies) { Set-RegValue $HKLM $p.P $p.N $p.T $p.V }
+    Set-DefaultBrowser
+}
+# alimentazione: coperchio chiuso o tasto di accensione = arresto (niente sospensione che scarica la batteria nel carrello)
+function Set-PowerConfig {
+    if ($Simula) { Write-Log '[SIMULAZIONE] imposterei coperchio/tasto = arresto, ibernazione a batteria, batteria critica = iberna'; return }
+    try {
+        foreach ($m in 'ac', 'dc') {
+            & powercfg.exe "/set${m}valueindex" SCHEME_CURRENT SUB_BUTTONS LIDACTION 3 | Out-Null
+            & powercfg.exe "/set${m}valueindex" SCHEME_CURRENT SUB_BUTTONS PBUTTONACTION 3 | Out-Null
+            & powercfg.exe "/set${m}valueindex" SCHEME_CURRENT SUB_SLEEP STANDBYIDLE 0 | Out-Null
+        }
+        & powercfg.exe /setacvalueindex SCHEME_CURRENT SUB_SLEEP HIBERNATEIDLE 0 | Out-Null
+        & powercfg.exe /setdcvalueindex SCHEME_CURRENT SUB_SLEEP HIBERNATEIDLE 1800 | Out-Null
+        & powercfg.exe /setdcvalueindex SCHEME_CURRENT SUB_BATTERY BATACTIONCRIT 2 | Out-Null
+        & powercfg.exe /setactive SCHEME_CURRENT | Out-Null
+        Write-Log 'Alimentazione: coperchio e tasto = arresto; a batteria ibernazione dopo 30 minuti'
+    } catch { Write-Log "Alimentazione non impostata: $($_.Exception.Message)" 'AVVISO' }
 }
 function Remove-MachineConfig {
+    Remove-RegValue $HKLM 'SOFTWARE\Policies\Microsoft\Windows\System' 'DefaultAssociationsConfiguration'
     foreach ($p in $MachinePolicies) {
         if ($p.P -like 'SOFTWARE\Microsoft\*' -or $p.P -like 'SYSTEM\*') { continue }
         Remove-RegValue $HKLM $p.P $p.N
@@ -496,7 +651,9 @@ function Set-UpdateTask {
         $action    = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument $arg
         $t1 = New-ScheduledTaskTrigger -AtStartup
         $t1.Delay = 'PT3M'
-        $t2 = New-ScheduledTaskTrigger -Daily -At '12:30'
+        # ogni giorno alle 8:00 e poi ogni 3 ore finche' il PC e' acceso (la sera i PC sono spenti nei carrelli)
+        $t2 = New-ScheduledTaskTrigger -Daily -At '08:00'
+        $t2.Repetition = (New-ScheduledTaskTrigger -Once -At '08:00' -RepetitionInterval (New-TimeSpan -Hours 3) -RepetitionDuration (New-TimeSpan -Hours 10)).Repetition
         $principal = New-ScheduledTaskPrincipal -UserId 'SYSTEM' -LogonType ServiceAccount -RunLevel Highest
         $settings  = New-ScheduledTaskSettingsSet -ExecutionTimeLimit (New-TimeSpan -Minutes 30) -StartWhenAvailable -RunOnlyIfNetworkAvailable `
                         -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 10) -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
@@ -507,6 +664,35 @@ function Set-UpdateTask {
 function Remove-UpdateTask {
     if ($Simula) { Write-Log "[SIMULAZIONE] toglierei l'attivita' $UpdTaskName"; return }
     Unregister-ScheduledTask -TaskName $UpdTaskName -Confirm:$false -ErrorAction SilentlyContinue
+}
+# scelta della classe: attivita' a richiesta, eseguita come Studente (la avvia l'attivita' di accesso e il collegamento "Cambia classe")
+function Set-ClassTask {
+    if ($Simula) { Write-Log "[SIMULAZIONE] registrerei l'attivita' $ClassTaskName"; return }
+    try {
+        $arg = '-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "{0}" -Classe' -f (Join-Path $Base 'Lavori.ps1')
+        $action    = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument $arg
+        $principal = New-ScheduledTaskPrincipal -UserId "$env:COMPUTERNAME\$StudentName" -LogonType Interactive -RunLevel Limited
+        $settings  = New-ScheduledTaskSettingsSet -ExecutionTimeLimit (New-TimeSpan -Minutes 30) -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
+        Register-ScheduledTask -TaskName $ClassTaskName -Action $action -Principal $principal -Settings $settings -Force | Out-Null
+        Write-Log "Attivita' $ClassTaskName registrata"
+    } catch { Write-Log "Attivita' $ClassTaskName non registrata: $($_.Exception.Message)" 'AVVISO' }
+}
+# i PC dello stesso carrello si scambiano la classe scelta (UDP 47010 solo sulla rete locale): attivita' sempre accesa come SYSTEM
+function Set-NetTask {
+    if ($Simula) { Write-Log "[SIMULAZIONE] registrerei l'attivita' $NetTaskName e la regola del firewall UDP 47010"; return }
+    try {
+        Remove-NetFirewallRule -Name 'Carrello-Classi-UDP' -ErrorAction SilentlyContinue
+        New-NetFirewallRule -Name 'Carrello-Classi-UDP' -DisplayName 'Scambio classi carrello (rete locale)' -Direction Inbound -Protocol UDP -LocalPort 47010 -Action Allow -RemoteAddress LocalSubnet -Profile Any | Out-Null
+        if ($Aggiorna -and (Get-ScheduledTask -TaskName $NetTaskName -ErrorAction SilentlyContinue)) { return }
+        $arg = '-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "{0}" -Ascolta' -f (Join-Path $Base 'Lavori.ps1')
+        $action    = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument $arg
+        $trigger   = New-ScheduledTaskTrigger -AtStartup
+        $principal = New-ScheduledTaskPrincipal -UserId 'SYSTEM' -LogonType ServiceAccount -RunLevel Highest
+        $settings  = New-ScheduledTaskSettingsSet -ExecutionTimeLimit ([TimeSpan]::Zero) -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1) -StartWhenAvailable
+        Register-ScheduledTask -TaskName $NetTaskName -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Force | Out-Null
+        Start-ScheduledTask -TaskName $NetTaskName -ErrorAction SilentlyContinue
+        Write-Log "Attivita' $NetTaskName registrata (scambio delle classi nel carrello)"
+    } catch { Write-Log "Attivita' $NetTaskName non registrata: $($_.Exception.Message)" 'AVVISO' }
 }
 function Remove-LogonTask {
     if ($Simula) { Write-Log "[SIMULAZIONE] toglierei l'attivita' $TaskName"; return }
@@ -585,10 +771,54 @@ function Set-WifiAuto {
     }
 }
 
+# rete della scuola: se c'e' il file Impostazioni-Wifi.xml (profilo esportato, con la password: resta FUORI da GitHub) lo importa e gli da' la priorita'
+function Set-SchoolWifi {
+    $f = Join-Path $PSScriptRoot 'Impostazioni-Wifi.xml'
+    if (-not (Test-Path -LiteralPath $f)) { if (-not $Aggiorna) { Write-Log 'Wi-Fi della scuola: file Impostazioni-Wifi.xml non trovato (la rete va collegata a mano)' 'AVVISO' }; return }
+    if ($Simula) { Write-Log '[SIMULAZIONE] importerei il profilo Wi-Fi della scuola con priorita'' massima'; return }
+    try {
+        $ssid = ([xml](Get-Content -LiteralPath $f -Raw)).WLANProfile.name
+        & netsh.exe wlan add profile filename="$f" user=all | Out-Null
+        & netsh.exe wlan set profileparameter name="$ssid" connectionmode=auto | Out-Null
+        $if = (Get-NetAdapter -Physical -ErrorAction SilentlyContinue | Where-Object { $_.PhysicalMediaType -match '802.11|Native' } | Select-Object -First 1 -ExpandProperty Name)
+        if (-not $if) { $if = 'Wi-Fi' }
+        & netsh.exe wlan set profileorder name="$ssid" interface="$if" priority=1 | Out-Null
+        Write-Log "Wi-Fi della scuola: profilo '$ssid' importato con priorita' massima"
+        # i PC dei carrelli dimenticano tutte le altre reti; eccezioni: elenco in Mantieni-Wifi.txt (solo per PC in prova, es. a casa)
+        $keep = @($ssid)
+        if ($env:COMPUTERNAME -eq 'C2-02') { $keep += @(Get-PatternList (Join-Path $PSScriptRoot 'Mantieni-Wifi.txt')) }   # eccezione solo per il PC di prova a casa
+        foreach ($l in (netsh wlan show profiles 2>$null)) {
+            if ($l -match '(?i)profil' -and $l -match ':\s*(.+?)\s*$') {
+                $n = $Matches[1]
+                if ($keep -contains $n) { continue }
+                & netsh.exe wlan delete profile name="$n" | Out-Null
+                Write-Log "Wi-Fi: rete dimenticata: $n"
+            }
+        }
+    } catch { Write-Log "Wi-Fi della scuola non impostato: $($_.Exception.Message)" 'AVVISO' }
+}
 function Remove-StoreApp([string]$name) {
     Get-AppxPackage -AllUsers -Name $name -ErrorAction SilentlyContinue | Remove-AppxPackage -AllUsers -ErrorAction SilentlyContinue
     Get-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue | Where-Object { $_.DisplayName -eq $name } |
         Remove-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue | Out-Null
+}
+# Edge: in Italia (Spazio economico europeo) si puo' disinstallare con il suo programma di installazione
+function Remove-Edge {
+    $root = Join-Path ${env:ProgramFiles(x86)} 'Microsoft\Edge\Application'
+    $setup = Get-ChildItem -LiteralPath $root -Directory -ErrorAction SilentlyContinue | Where-Object { $_.Name -match '^\d+\.' } |
+             Sort-Object { [version]$_.Name } -Descending | ForEach-Object { Join-Path $_.FullName 'Installer\setup.exe' } | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
+    if (-not $setup) { Write-Log 'Edge non presente (o gia'' rimosso)'; return }
+    if ($Simula) { Write-Log '[SIMULAZIONE] disinstallerei Microsoft Edge'; return }
+    Get-Process -Name msedge -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+    # senza questo valore il programma di Edge rifiuta di disinstallarsi (codice 532)
+    New-Item -Path 'HKLM:\SOFTWARE\Microsoft\EdgeUpdateDev' -Force | Out-Null
+    New-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\EdgeUpdateDev' -Name 'AllowUninstall' -PropertyType DWord -Value 1 -Force | Out-Null
+    try {
+        $p = Start-Process -FilePath $setup -ArgumentList '--uninstall --system-level --verbose-logging --force-uninstall' -PassThru -WindowStyle Hidden
+        if (-not $p.WaitForExit(240000)) { Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue; Write-Log 'Disinstallazione di Edge troppo lunga, interrotta' 'AVVISO'; return }
+        $left = Test-Path -LiteralPath (Join-Path ${env:ProgramFiles(x86)} 'Microsoft\Edge\Application\msedge.exe')
+        Write-Log ("Edge disinstallato (codice {0}){1}" -f $p.ExitCode, $(if ($left) { ': ma msedge.exe e'' ancora presente' } else { '' })) $(if ($left) { 'AVVISO' } else { 'INFO' })
+    } catch { Write-Log "Edge non disinstallato: $($_.Exception.Message)" 'AVVISO' }
 }
 function Uninstall-Program([string]$pattern) {
     $keys = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*',
@@ -625,6 +855,9 @@ if ($Logon) {
     if (Test-Path "Registry::HKEY_USERS\$sid") {
         $prof = (Get-CimInstance Win32_UserProfile -Filter "SID='$sid'" -ErrorAction SilentlyContinue).LocalPath
         if ($prof) {
+            # tolgo le protezioni dell'accesso precedente per poter rifare i file
+            & icacls.exe "$prof\Desktop" /remove:d $StudentName | Out-Null
+            Get-ChildItem -LiteralPath "$prof\Desktop" -Force -ErrorAction SilentlyContinue | ForEach-Object { & icacls.exe $_.FullName /remove:d $StudentName | Out-Null }
             Move-ToBackup "$prof\Desktop" 'Desktop'
             Move-ToBackup "$prof\Downloads" 'Download'
             try {
@@ -633,6 +866,18 @@ if ($Logon) {
                 $lnk.TargetPath = $LavoriDir
                 $lnk.Save()
             } catch { }
+            # collegamento "Cambia classe" (avvia l'attivita' a richiesta: da qui PowerShell non si puo' lanciare)
+            try {
+                $lc = $ws.CreateShortcut("$prof\Desktop\Cambia classe.lnk")
+                $lc.TargetPath = "$env:WINDIR\System32\schtasks.exe"
+                $lc.Arguments = "/run /tn $ClassTaskName"
+                $lc.IconLocation = "$env:WINDIR\System32\shell32.dll,43"
+                $lc.WindowStyle = 7
+                $lc.Save()
+            } catch { }
+            # istruzioni per gli alunni sul desktop (si rifanno a ogni accesso)
+            $istr = Join-Path $Base 'Istruzioni-Studenti.txt'
+            if (Test-Path -LiteralPath $istr) { try { Copy-Item -LiteralPath $istr -Destination "$prof\Desktop\COME USARE IL PC.txt" -Force } catch { } }
             # programmi installati dall'alunno nella propria cartella (es. Opera GX): rimossi, tranne i consentiti
             $allowFile = Join-Path $Base 'AppConsentite-Programmi.txt'
             if (Test-Path -LiteralPath $allowFile) {
@@ -661,6 +906,21 @@ if ($Logon) {
         }
     }
     Write-Log 'Accesso di Studente: blocchi riapplicati, desktop e download puliti'
+    # a ogni accensione la classe va scelta di nuovo
+    Remove-ItemProperty -Path "Registry::HKEY_USERS\$sid\Software\Carrello" -Name 'Classe', 'ClasseOra' -ErrorAction SilentlyContinue
+    # copia giornaliera di Lavori e registro delle modifiche, poi la scelta della classe
+    $lv = Join-Path $Base 'Lavori.ps1'
+    if (Test-Path -LiteralPath $lv) {
+        & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $lv -Snapshot
+        Start-ScheduledTask -TaskName $ClassTaskName -ErrorAction SilentlyContinue
+    }
+    Set-ChromeShortcutArgs
+    # Edge e Chrome ricreano il collegamento sul desktop al primo avvio: seconda pulizia dopo un minuto
+    Get-ChildItem 'C:\Users\Public\Desktop' -Filter '*.lnk' -Force -ErrorAction SilentlyContinue | Where-Object { $_.Name -like 'Microsoft Edge*' } | Remove-Item -Force -ErrorAction SilentlyContinue
+    Start-Sleep -Seconds 60
+    $prof2 = (Get-CimInstance Win32_UserProfile -Filter "SID='$sid'" -ErrorAction SilentlyContinue).LocalPath
+    if ($prof2) { Move-ToBackup "$prof2\Desktop" 'Desktop' }
+    Get-ChildItem 'C:\Users\Public\Desktop' -Filter '*.lnk' -Force -ErrorAction SilentlyContinue | Where-Object { $_.Name -like 'Microsoft Edge*' } | Remove-Item -Force -ErrorAction SilentlyContinue
     exit 0
 }
 
@@ -679,8 +939,7 @@ if ($env:USERNAME -eq $StudentName) {
 $grpAdmin = (Get-LocalGroup -SID 'S-1-5-32-544').Name
 $grpUsers = (Get-LocalGroup -SID 'S-1-5-32-545').Name
 
-Write-Host ''
-Write-Host "Installa-PC v$Versione" -ForegroundColor Cyan
+if (-not $Logon -and -not $Aggiorna) { Show-Banner }
 if ($Simula) { Write-Host 'MODALITA SIMULAZIONE: non viene modificato nulla.' -ForegroundColor Yellow }
 
 # ======================================================== ANNULLA
@@ -688,6 +947,7 @@ if ($Annulla) {
     Write-Log 'ANNULLA: inizio'
     Remove-LogonTask
     Remove-UpdateTask
+    if (-not $Simula) { Unregister-ScheduledTask -TaskName $ClassTaskName -Confirm:$false -ErrorAction SilentlyContinue; Unregister-ScheduledTask -TaskName $NetTaskName -Confirm:$false -ErrorAction SilentlyContinue }
     Remove-Autologon
     Remove-Srp
     Remove-MachineConfig
@@ -716,13 +976,25 @@ if ($Aggiorna) {
     $Carrello = [int]$Matches[1]; $NumeroPC = [int]$Matches[2]
     $SenzaBackup = $true; $NoRiavvio = $true
 }
-if (-not $Carrello) { $Carrello = [int](Read-Host 'Numero del carrello (1 o 2)') }
-if (-not $NumeroPC) { $NumeroPC = [int](Read-Host 'Numero del PC (numero d''appello)') }
-if ($Carrello -lt 1 -or $Carrello -gt 9 -or $NumeroPC -lt 1 -or $NumeroPC -gt 99) { Write-Host 'Numeri non validi.' -ForegroundColor Red; exit 1 }
+function Read-Numero([string]$domanda, [int]$min, [int]$max) {
+    while ($true) {
+        $t = Read-Host $domanda
+        $n = 0
+        if ([int]::TryParse($t.Trim(), [ref]$n) -and $n -ge $min -and $n -le $max) { return $n }
+        Write-Host "Scrivi un numero da $min a $max e premi Invio." -ForegroundColor Yellow
+    }
+}
+if (-not $Carrello) { $Carrello = Read-Numero 'Numero del carrello (1 o 2)' 1 9 }
+if (-not $NumeroPC) { $NumeroPC = Read-Numero "Numero del PC (numero d'appello)" 1 99 }
 $newName = 'C{0}-{1:00}' -f $Carrello, $NumeroPC
 
 Write-Host ''
-Write-Host "Questo PC diventa: $newName" -ForegroundColor Cyan
+Write-Host "Questo PC diventa: $newName" -ForegroundColor Green
+if (-not $Aggiorna -and -not $Simula) {
+    Write-Host 'Se il nome NON e'' giusto premi CTRL+C adesso. Si parte tra 10 secondi...' -ForegroundColor Yellow
+    for ($i = 10; $i -gt 0; $i--) { Write-Host -NoNewline ("{0} " -f $i); Start-Sleep -Seconds 1 }
+    Write-Host ''
+}
 Write-Log "INSTALLA v${Versione} - inizio (nome previsto $newName)"
 
 if (-not $Aggiorna) {
@@ -741,7 +1013,7 @@ if (-not $Simula) {
     if (Test-Path -LiteralPath $als) { Copy-Item -LiteralPath $als -Destination $Base -Force }
     Remove-Item -LiteralPath (Join-Path $Base 'Configura-PC-Carrello.ps1') -Force -ErrorAction SilentlyContinue
     # aggiornamento automatico: script, sfondi e numero di versione
-    foreach ($f in 'Aggiorna-PC.ps1', 'ElencoApp-da-rimuovere.txt', 'ElencoProgrammi-da-rimuovere.txt') {
+    foreach ($f in 'Aggiorna-PC.ps1', 'Lavori.ps1', 'Classi.txt', 'Istruzioni-Studenti.txt', 'ElencoApp-da-rimuovere.txt', 'ElencoProgrammi-da-rimuovere.txt') {
         $src = Join-Path $PSScriptRoot $f
         if (Test-Path -LiteralPath $src) { try { Copy-Item -LiteralPath $src -Destination $Base -Force } catch { Write-Log "Copia di $f non riuscita: $($_.Exception.Message)" 'AVVISO' } }
     }
@@ -759,8 +1031,14 @@ if (-not $Simula) {
 
 # --- punto di ripristino
 if (-not $Simula -and -not $Aggiorna) {
-    try { Enable-ComputerRestore -Drive "$env:SystemDrive\" -ErrorAction Stop; Checkpoint-Computer -Description 'Prima di Installa-PC' -RestorePointType MODIFY_SETTINGS -ErrorAction Stop; Write-Log 'Punto di ripristino creato' }
-    catch { Write-Log "Punto di ripristino non creato: $($_.Exception.Message)" 'AVVISO' }
+    # il punto di ripristino puo' restare appeso se Windows sta installando aggiornamenti: massimo 3 minuti
+    try {
+        Enable-ComputerRestore -Drive "$env:SystemDrive\" -ErrorAction Stop
+        $job = Start-Job { Checkpoint-Computer -Description 'Prima di Installa-PC' -RestorePointType MODIFY_SETTINGS -ErrorAction Stop }
+        if (Wait-Job $job -Timeout 180) { Receive-Job $job -ErrorAction Stop | Out-Null; Write-Log 'Punto di ripristino creato' }
+        else { Stop-Job $job; Write-Log 'Punto di ripristino non creato: Windows e'' occupato (tempo scaduto), proseguo' 'AVVISO' }
+        Remove-Job $job -Force -ErrorAction SilentlyContinue
+    } catch { Write-Log "Punto di ripristino non creato: $($_.Exception.Message)" 'AVVISO' }
 }
 
 # --- backup dei file degli utenti: PRIMA di qualsiasi modifica
@@ -942,34 +1220,65 @@ else {
     if (-not (Test-Path $LavoriDir)) { New-Item -ItemType Directory -Path $LavoriDir -Force | Out-Null }
     & icacls.exe $LavoriDir /grant '*S-1-5-32-545:(OI)(CI)M' | Out-Null
     Write-Log "Cartella $LavoriDir pronta"
+    $lv = Join-Path $PSScriptRoot 'Lavori.ps1'
+    if (Test-Path -LiteralPath $lv) { & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $lv -Imposta }
 }
 
 # --- sfondo con il numero del PC
 New-WallpaperImage $WallFile $newName $Carrello
 Install-GeoGebra
-New-TaskbarLayout
-Set-DefaultLayout
+# --- barra e Start dell'amministratore (il layout vale solo al primo accesso: si crea il profilo ora se manca)
+$admSid = (Get-LocalUser -Name $AdminName -ErrorAction SilentlyContinue).SID.Value
+if (-not $Aggiorna) {
+    New-TaskbarLayout 'Admin'
+    $script:AdminPinsJson = $script:StartPinsJson
+    Set-DefaultLayout $TaskbarXmlAdmin
+    if ($admSid -and -not $Simula -and -not (Get-CimInstance Win32_UserProfile -ErrorAction SilentlyContinue | Where-Object { $_.SID -eq $admSid -and $_.LocalPath })) {
+        New-StudentProfile $admSid $AdminName
+    }
+}
+New-TaskbarLayout 'Studente'
+Set-DefaultLayout $TaskbarXml $true
 
 # --- impostazioni di sistema
 Set-MachineConfig
+Set-PowerConfig
 Set-Autologon
 if ($ConBloccoProgrammi) { Set-Srp } else { Remove-Srp }
+
+# --- impostazioni dell'amministratore (se il profilo esiste)
+if ($admSid) {
+    [void](Use-UserHive $admSid { param($root) Set-AdminConfig $root })
+    if (-not $Aggiorna) { Reset-AdminShell $admSid }
+}
 
 # --- impostazioni di Studente
 $sid = if ($stu) { $stu.SID.Value } else { 'S-1-5-21-SIMULATO' }
 $done = Use-UserHive $sid { param($root) Set-UserConfig $root }
-if (-not $done) {
-    New-StudentProfile $sid
-    $done = Use-UserHive $sid { param($root) Set-UserConfig $root }
-}
-if (-not $done) { Write-Log 'Profilo di Studente non disponibile: i blocchi saranno scritti al primo accesso' 'AVVISO' }
-Clear-DefaultLayout
+# il profilo di Studente NON si crea da script: nasce al primo accesso (accesso automatico) e prende barra e Start dal profilo Default
+if (-not $done) { Write-Log 'Profilo di Studente non ancora presente: nasce al primo accesso con barra e Start della scuola; i blocchi li scrive l''attivita'' di accesso' }
 Set-LogonTask
+Set-ClassTask
+Set-NetTask
 if (-not $Aggiorna) { Set-UpdateTask }
 
 # --- gestione remota e Wi-Fi
 Enable-RemoteAccess
 Set-WifiAuto
+Set-SchoolWifi
+
+# --- Veyon Service (i docenti vedono/bloccano gli schermi, aprono siti, inviano file): installato CHIUSO;
+#     si apre da solo con -Aggiorna quando nel pacchetto arriva veyon-docenti-pubblica.key (vedi Docenti/PIANO_DOCENTI.md)
+$vd = $PSScriptRoot
+if (-not (Test-Path -LiteralPath (Join-Path $vd 'Veyon-Comune.ps1'))) { $vd = Join-Path $PSScriptRoot 'Docenti' }
+if (Test-Path -LiteralPath (Join-Path $vd 'Veyon-Carrello.ps1')) {
+    try {
+        $vArgs = '-NoProfile -ExecutionPolicy Bypass -File "{0}" -Dir "{1}"' -f (Join-Path $vd 'Veyon-Carrello.ps1'), $vd
+        if ($Simula) { $vArgs += ' -Simula' }
+        $vp = Start-Process -FilePath 'powershell.exe' -ArgumentList $vArgs -Wait -PassThru -WindowStyle Hidden
+        Write-Log ("Veyon Service: codice di uscita {0} (dettagli nelle righe VEYON del registro)" -f $vp.ExitCode) $(if ($vp.ExitCode -eq 0) { 'INFO' } else { 'AVVISO' })
+    } catch { Write-Log "Veyon non configurato: $($_.Exception.Message)" 'AVVISO' }
+} else { Write-Log 'Veyon: script non trovati (cartella Docenti): saltato' 'AVVISO' }
 
 # --- rimozione app e programmi
 $apps = @(Get-PatternList (Join-Path $PSScriptRoot 'ElencoApp-da-rimuovere.txt'))
@@ -987,6 +1296,8 @@ if (-not $Simula -and $progs.Count -gt 0) {
     Get-Process -Name 'firefox', 'opera', 'browser_assistant', 'WinRAR' -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
 }
 foreach ($pg in $progs) { Uninstall-Program $pg }
+# Edge: la disinstallazione e' rifiutata da Windows (codice 532): resta installato ma bloccato per Studente e senza icone
+#Remove-Edge
 
 # modalita' "solo app consentite": rimuove tutto cio' che non e' in elenco
 $allowStore = @(Get-PatternList (Join-Path $PSScriptRoot 'AppConsentite-Store.txt'))
@@ -1048,6 +1359,52 @@ if ($env:COMPUTERNAME -ne $newName) {
     else { try { Rename-Computer -NewName $newName -Force -ErrorAction Stop; Write-Log "PC rinominato in $newName (effettivo al riavvio)" } catch { Write-Log "Rinomina non riuscita: $($_.Exception.Message)" 'ERRORE' } }
 }
 
+# ======================================================== verifica finale
+function Show-Verifica {
+    $risultati = New-Object System.Collections.Generic.List[object]
+    function Add-Check([string]$nome, [scriptblock]$test) {
+        $ok = $false
+        try { $ok = [bool](& $test) } catch { $ok = $false }
+        $risultati.Add([pscustomobject]@{ Nome = $nome; Ok = $ok })
+    }
+    $sm = Join-Path $env:ProgramData 'Microsoft\Windows\Start Menu\Programs'
+    $hasLnk = { param($n) [bool](Get-ChildItem -LiteralPath $sm -Recurse -Filter $n -ErrorAction SilentlyContinue | Select-Object -First 1) }
+    Add-Check "Nome del PC: $newName (attivo dopo il riavvio)" { (Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\ComputerName\ComputerName').ComputerName -eq $newName }
+    Add-Check 'Account amministratore AdminDocente' { (Get-LocalUser $AdminName).Enabled -and (Get-LocalGroupMember -Group $grpAdmin | Where-Object { $_.Name -like "*\$AdminName" }) }
+    Add-Check 'Account Studente con accesso automatico' { (Get-LocalUser $StudentName).Enabled -and (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon').AutoAdminLogon -eq '1' }
+    Add-Check 'Rete Wi-Fi della scuola (Scuola-Laboratorio)' { (netsh wlan show profiles) -match 'Scuola-Laboratorio' }
+    Add-Check 'Gestione remota (SSH) attiva' { (Get-Service sshd).Status -eq 'Running' }
+    Add-Check 'Chrome installato' { Test-Path "$env:ProgramFiles\Google\Chrome\Application\chrome.exe" }
+    foreach ($a in 'Word', 'Excel', 'PowerPoint') { $nn = "$a.lnk"; $blk = { & $hasLnk $nn }.GetNewClosure(); Add-Check "$a installato" $blk }
+    Add-Check 'GeoGebra installato' { & $hasLnk 'GeoGebra*.lnk' }
+    Add-Check 'Scratch installato' { & $hasLnk 'Scratch*.lnk' }
+    Add-Check 'Chrome in modalita'' ospite con Google' { (Get-ItemProperty 'HKLM:\SOFTWARE\Policies\Google\Chrome').BrowserGuestModeEnforced -eq 1 }
+    Add-Check 'Aggiornamento automatico dello script (attivita)' { Get-ScheduledTask -TaskName $UpdTaskName }
+    Add-Check 'Attivita di accesso, scelta classe e scambio classi' { (Get-ScheduledTask -TaskName $TaskName) -and (Get-ScheduledTask -TaskName $ClassTaskName) -and (Get-ScheduledTask -TaskName $NetTaskName) }
+    Add-Check 'Windows Update automatico' { (Get-ItemProperty 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU').NoAutoUpdate -eq 0 }
+    Add-Check 'Veyon (servizio installato, chiuso)' { Get-Service -Name VeyonService }
+    Add-Check 'Cartella Lavori e sfondo con il numero' { (Test-Path $LavoriDir) -and (Test-Path $WallFile) }
+    Add-Check 'App non volute rimosse (Solitario, Xbox, Teams, Copilot)' { -not (Get-AppxPackage -AllUsers | Where-Object { $_.Name -match 'Solitaire|GamingApp|XboxGamingOverlay|MSTeams|MicrosoftTeams|Copilot' }) }
+    Write-Host ''
+    Write-Host '--- CONTROLLO FINALE ---' -ForegroundColor Cyan
+    $righe = @()
+    foreach ($r in $risultati) {
+        if ($r.Ok) { Write-Host ('  [ OK ]     ' + $r.Nome) -ForegroundColor Green; $righe += ('OK      ' + $r.Nome) }
+        else { Write-Host ('  [ ERRORE ] ' + $r.Nome) -ForegroundColor Red; $righe += ('ERRORE  ' + $r.Nome) }
+    }
+    $err = @($risultati | Where-Object { -not $_.Ok }).Count
+    Write-Host ''
+    if ($err -eq 0) { Write-Host 'TUTTO A POSTO.' -ForegroundColor Green } else { Write-Host ("ATTENZIONE: {0} controlli non riusciti. Scrivi il nome del PC e la riga rossa a Paride." -f $err) -ForegroundColor Red }
+    $testo = @("Installazione $newName - $(Get-Date -Format 'yyyy-MM-dd HH:mm')", "$($Firma[0]) (v$Versione) - $($Firma[1])", '') + $righe
+    try { Set-Content -LiteralPath (Join-Path $Base 'verifica.txt') -Value $testo -Encoding UTF8 } catch { }
+    try {
+        $rep = Join-Path $PSScriptRoot 'Report'
+        New-Item -ItemType Directory -Path $rep -Force -ErrorAction Stop | Out-Null
+        Set-Content -LiteralPath (Join-Path $rep ("Verifica_{0}.txt" -f $newName)) -Value $testo -Encoding UTF8
+    } catch { }
+    Set-Content -LiteralPath (Join-Path $Base 'Installato-da.txt') -Value @("$($Firma[0]) (v$Versione)", $Firma[1], "PC: $newName", "Data: $(Get-Date -Format 'yyyy-MM-dd HH:mm')") -Encoding UTF8
+}
+
 # ======================================================== riepilogo
 if ($Aggiorna) { Write-Log "Aggiornamento di configurazione applicato (script v$Versione)"; exit 0 }
 Write-Host ''
@@ -1055,7 +1412,10 @@ if ($Simula) {
     Write-Host "SIMULAZIONE FINITA. Risultato nel file: $SimLog" -ForegroundColor Green
     exit 0
 }
+Show-Verifica
+Write-Host ''
 Write-Host '=== FATTO ===' -ForegroundColor Green
+Show-Banner
 Write-Host "Nome PC         : $newName (dopo il riavvio)"
 Write-Host "Amministratore  : $AdminName   (password nel file Impostazioni-scuola.txt)"
 Write-Host "Alunni          : $StudentName  (accesso automatico)"

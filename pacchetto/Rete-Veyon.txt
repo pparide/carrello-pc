@@ -1,0 +1,17 @@
+# Impostazioni di rete per Veyon (modificabili senza toccare gli script)
+# IP (o intervalli, o subnet) dei PC docenti: gli unici da cui i carrelli accettano Veyon (porta 11100). Separati da virgola.
+SubnetDocenti=192.168.110.245-192.168.110.250
+# Quanti PC ha ogni carrello
+PCCarrello1=14
+PCCarrello2=24
+# Indirizzo dei PC come lo vede il Master. {nn} = numero a 2 cifre, {n+100} = numero + 100.
+# Esempi: c1-{nn}   oppure   192.168.110.{n+100}
+HostCarrello1=192.168.110.{n+200}
+HostCarrello2=192.168.110.{n+220}
+# Da dove il Mac puo' entrare in SSH sui PC docenti (LocalSubnet oppure subnet separate da virgola)
+SshDa=192.168.110.0/24
+# Rete Wi-Fi dei PC di classe (nome esatto). Dove c'e' il cavo LAN, il cavo ha SEMPRE la precedenza sul Wi-Fi.
+# Altre reti Wi-Fi salvate sul PC (ospiti, voucher, telefoni...) non si collegano piu' da sole.
+WifiClasse=SanTommaso_WiFi
+# Salvaschermo standard (vuoto, senza password) dopo tot minuti di inattivita'; 0 = nessun salvaschermo. I docenti non possono cambiarlo.
+ScreensaverMinuti=10

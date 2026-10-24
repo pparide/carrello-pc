@@ -1,0 +1,35 @@
+﻿COME USARE QUESTO PC
+
+Questo e' il PC con il tuo numero (lo vedi in alto a destra sullo sfondo).
+Usa sempre lo stesso PC: il numero e' il tuo numero d'appello.
+
+0. ALL'ACCENSIONE
+   - Compare la finestra "Che classe siete?": clicca la TUA classe (se non sei sicuro,
+     chiedi al docente). Se nel carrello ci sono gia' PC di un'altra classe, il PC ti avvisa.
+   - Se si cambia classe, usa il collegamento "Cambia classe" sul desktop.
+   - ATTENZIONE: tutte le modifiche ai file nella cartella Lavori sono REGISTRATE
+     (quale PC, quale classe, che ora). Non toccare i file degli altri.
+
+1. SALVA IL TUO LAVORO
+   - Salva sempre nella cartella "Lavori" (c'e' il collegamento sul desktop: si apre
+     sulla cartella della tua classe).
+   - I tuoi file nella cartella Lavori restano sul PC e li ritrovi alla prossima lezione.
+   - Quello che lasci sul Desktop o nella cartella Download viene SPOSTATO via
+     quando riaccendi il PC: non salvare li'.
+
+2. PROGRAMMI
+   - Sulla barra in basso trovi Word, Excel, PowerPoint, GeoGebra, Chrome,
+     Calcolatrice e Scratch.
+   - Non si possono installare programmi o cambiare le impostazioni.
+   - Internet si usa con Chrome. Chrome non ricorda la cronologia ne' le password.
+
+3. A FINE LEZIONE
+   - Salva e chiudi i programmi.
+   - Spegni il PC con "Arresta" (se vedi "Aggiorna e arresta", sceglilo e aspetta).
+   - Rimetti il PC al suo posto nel carrello, con il caricabatterie inserito.
+   - Se un PC e' scarico, rotto o strano, dillo subito al docente.
+
+4. REGOLE
+   - Il PC si usa solo per la lezione, con il permesso del docente.
+   - Non spostare, non scambiare e non smontare i PC.
+   - Niente cibo e bevande vicino ai PC.

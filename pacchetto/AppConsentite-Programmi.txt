@@ -18,6 +18,7 @@ Adobe Acrobat*
 Google Chrome*
 Scratch*
 Java*
+Veyon*
 
 # Samsung: ripristino e profili dello schermo
 Samsung Recovery Service*

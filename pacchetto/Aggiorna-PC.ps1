@@ -34,9 +34,20 @@ $ChiavePubblica = '<RSAKeyValue><Modulus>kjiiqQOycI5PkvyV8S+DgMqN7WgFoqxIZeuWg34
 function Write-Log([string]$msg, [string]$level = 'INFO') {
     try { Add-Content -Path $LogFile -Value ('{0} [{1}] AGGIORNA: {2}' -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'), $level, $msg) -Encoding UTF8 } catch { }
 }
+function Get-BatteriaInfo {
+    try {
+        $tmp = Join-Path $env:TEMP 'bat.xml'
+        & powercfg.exe /batteryreport /output $tmp /xml 2>&1 | Out-Null
+        [xml]$x = Get-Content -LiteralPath $tmp -Raw
+        Remove-Item -LiteralPath $tmp -Force -ErrorAction SilentlyContinue
+        $b = @($x.BatteryReport.Batteries.Battery)[0]
+        $c = (Get-CimInstance Win32_Battery -ErrorAction SilentlyContinue | Select-Object -First 1).EstimatedChargeRemaining
+        return [pscustomobject]@{ SalutePercento = [int](100 * [double]$b.FullChargeCapacity / [double]$b.DesignCapacity); Cicli = [int]$b.CycleCount; CaricaPercento = $c }
+    } catch { return $null }
+}
 function Set-Stato([string]$esito, $build) {
     try {
-        [pscustomobject]@{ UltimoControllo = (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'); Esito = $esito; BuildInstallata = $build; Pc = $env:COMPUTERNAME } |
+        [pscustomobject]@{ UltimoControllo = (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'); Esito = $esito; BuildInstallata = $build; Pc = $env:COMPUTERNAME; Batteria = (Get-BatteriaInfo) } |
             ConvertTo-Json | Set-Content -Path $StatoFile -Encoding UTF8
     } catch { }
 }
@@ -58,9 +69,27 @@ function Get-Sha256([byte[]]$bytes) {
     return ([BitConverter]::ToString($h.ComputeHash($bytes)) -replace '-', '').ToLower()
 }
 
+# Windows Update: a ogni controllo chiede a Windows di cercare, scaricare e installare gli aggiornamenti
+function Start-WindowsUpdate {
+    try {
+        foreach ($svc in 'wuauserv', 'UsoSvc', 'BITS') {
+            $x = Get-Service -Name $svc -ErrorAction SilentlyContinue
+            if ($x -and $x.StartType -eq 'Disabled') { Set-Service -Name $svc -StartupType Manual }
+        }
+        $uso = Join-Path $env:WINDIR 'System32\UsoClient.exe'
+        if (Test-Path $uso) {
+            foreach ($c in 'StartScan', 'StartDownload', 'StartInstall') { Start-Process -FilePath $uso -ArgumentList $c -WindowStyle Hidden; Start-Sleep -Seconds 2 }
+        }
+        $pend = (Test-Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired') -or
+                (Test-Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending')
+        Write-Log ("Windows Update: ricerca avviata; riavvio in sospeso: {0}" -f $(if ($pend) { 'si' } else { 'no' }))
+    } catch { Write-Log "Windows Update: $($_.Exception.Message)" 'AVVISO' }
+}
+
 $mutex = New-Object System.Threading.Mutex($false, 'Global\CarrelloAggiorna')
 if (-not $mutex.WaitOne(0)) { exit 0 }
 $buildInstallata = 0
+Start-WindowsUpdate
 try {
     if (Test-Path $BuildFile) { $buildInstallata = [int](Get-Content $BuildFile -Raw).Trim() }
 

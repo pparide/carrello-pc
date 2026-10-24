@@ -1,20 +1,26 @@
 {
- "build": 1,
+ "build": 2,
  "versione": "2.1",
  "carrelli": [
   2
  ],
  "file": {
   "ANNULLA.bat": "b99c775a2963e685760b7a2ffef2f4aad283b75f03b8442bed8be131f68efd8d",
-  "Aggiorna-PC.ps1": "e4bc9d03c4d93944357ba9f4e67977579eb345c36bffb32e389335b5e92cb0df",
-  "AppConsentite-Programmi.txt": "13e320e50dab6b6c3cd873f83dbb82ad2ad797ef2582f74691c73847b33c36ca",
+  "Aggiorna-PC.ps1": "c54d605928ec5fcdff0048a825b2cd413034a12a06b1802b47bc8734637bc4db",
+  "AppConsentite-Programmi.txt": "e716e69d9497f007e25f2fbd6cc7f9849afa31ae4d8b8795a22bafeae31f3085",
   "AppConsentite-Store.txt": "f45be006237991d965237c06acc40e8fe29fe26afa951eb207259925d726b9af",
-  "ElencoApp-da-rimuovere.txt": "0e9c8a734250294e864451d9110b4fe0ee9edc20ac5a8c469facef577d776a97",
+  "Classi.txt": "531404e0fde48472f2f83360323335e96f5e1c64d557e658ffe5227af184c3f1",
+  "ElencoApp-da-rimuovere.txt": "6aa262b2523eec18db53975e194ced4b090329132dcb818b146fe58edaa3265c",
   "ElencoProgrammi-da-rimuovere.txt": "04f16e7dce6b19f476fbda964c1b47d247f18d38158084e1e731bfaca00f6190",
   "INSTALLA.bat": "a8065615499c5a4cd8bbc883892f4479fefc17a8f9d0719500e50d57a4e7654d",
-  "Installa-PC.ps1": "6ebda3af17d1cb781cf33acddcfc6f1a339b01f3afc3ca466f769d3e1efeff6d",
+  "Installa-PC.ps1": "384bf1c61e8ec14eb23ea168d00575dd4a91c76d438fdff73806da442769a6b4",
+  "Istruzioni-Studenti.txt": "f98c35ffee46a70c8fa80ebc954d57b809d211adc5b577ddeb285313d3da53d1",
+  "Lavori.ps1": "931722d105afc11084acd7aec2c8d446162707ba6889285f4d1d8846554e0723",
+  "Rete-Veyon.txt": "debe599bb9fbb80b75f3f753a9a7b53515eed99b20fa7a01ddf6d672ba92fdf0",
   "SIMULA.bat": "ef4b1603cfd0aa7e80b7ccd4793da132979ccebf269f5186a33e62ad3cbf5be9",
-  "VERSIONE.txt": "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b",
+  "VERSIONE.txt": "d4735e3a265e16eee03f59718b9b5d03019c07d8b6c51f90da3a666eec13ab35",
+  "Veyon-Carrello.ps1": "e6f87f2acf882667cb4a2b6bccd3b302584030931fcd5539bf2a8c53d8f69566",
+  "Veyon-Comune.ps1": "3728f42d86dae400efb6de0bc4864f7804d280eda1a8a99f6f1096d40cd8fb40",
   "chiave-mac.pub": "0d7eaafdebfd2b9d34b6bac32440e8daceea107cb30f1500b9524ff26c1c26b2"
  }
 }

@@ -97,3 +97,25 @@ ReincubateLtd.CamoStudio
 #Microsoft.WindowsStore
 #Microsoft.StorePurchaseApp
 #Microsoft.GamingServices
+
+# --- Copilot
+Microsoft.Copilot
+Microsoft.Windows.Ai.Copilot.Provider
+
+# --- nuovo Outlook (non serve agli alunni)
+Microsoft.OutlookForWindows
+
+# --- Widget (la sua policy e' protetta da Windows: si toglie rimuovendo l'app)
+MicrosoftWindows.Client.WebExperience
+
+# --- giochi, Xbox, Teams, WhatsApp (non servono agli alunni)
+Microsoft.MicrosoftSolitaireCollection
+Microsoft.GamingServices
+Microsoft.GamingApp
+Microsoft.XboxGamingOverlay
+Microsoft.XboxIdentityProvider
+Microsoft.XboxSpeechToTextOverlay
+Microsoft.Xbox.TCUI
+MSTeams
+MicrosoftTeams
+5319275A.WhatsAppDesktop
