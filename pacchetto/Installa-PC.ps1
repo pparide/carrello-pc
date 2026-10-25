@@ -1398,7 +1398,8 @@ function Show-Verifica {
     $testo = @("Installazione $newName - $(Get-Date -Format 'yyyy-MM-dd HH:mm')", "$($Firma[0]) (v$Versione) - $($Firma[1])", '') + $righe
     try { Set-Content -LiteralPath (Join-Path $Base 'verifica.txt') -Value $testo -Encoding UTF8 } catch { }
     try {
-        $rep = Join-Path $PSScriptRoot 'Report'
+        # sulla penna la cartella Report sta accanto a INSTALLA.bat (lo script e' in NON-TOCCARE)
+        $rep = if ((Split-Path $PSScriptRoot -Leaf) -eq 'NON-TOCCARE') { Join-Path (Split-Path $PSScriptRoot -Parent) 'Report' } else { Join-Path $PSScriptRoot 'Report' }
         New-Item -ItemType Directory -Path $rep -Force -ErrorAction Stop | Out-Null
         Set-Content -LiteralPath (Join-Path $rep ("Verifica_{0}.txt" -f $newName)) -Value $testo -Encoding UTF8
     } catch { }
