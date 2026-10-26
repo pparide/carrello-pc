@@ -69,6 +69,20 @@ function Get-Sha256([byte[]]$bytes) {
     return ([BitConverter]::ToString($h.ComputeHash($bytes)) -replace '-', '').ToLower()
 }
 
+# se l'attivita' di accesso non e' partita dopo l'ultimo avvio (capita al primo accesso), la fa partire
+function Start-LogonSeMancato {
+    try {
+        $boot = (Get-CimInstance Win32_OperatingSystem).LastBootUpTime
+        $su = Get-LocalUser -Name 'Studente' -ErrorAction SilentlyContinue
+        if (-not $su -or -not (Test-Path "Registry::HKEY_USERS\$($su.SID.Value)")) { return }
+        $info = Get-ScheduledTaskInfo -TaskName 'Carrello-Logon' -ErrorAction Stop
+        if ($info.LastRunTime -lt $boot -and ((Get-Date) - $boot).TotalMinutes -gt 2) {
+            Start-ScheduledTask -TaskName 'Carrello-Logon'
+            Write-Log "L'attivita' di accesso non era partita dopo l'avvio: avviata ora"
+        }
+    } catch { }
+}
+
 # Windows Update: a ogni controllo chiede a Windows di cercare, scaricare e installare gli aggiornamenti
 function Start-WindowsUpdate {
     try {
@@ -89,6 +103,7 @@ function Start-WindowsUpdate {
 $mutex = New-Object System.Threading.Mutex($false, 'Global\CarrelloAggiorna')
 if (-not $mutex.WaitOne(0)) { exit 0 }
 $buildInstallata = 0
+Start-LogonSeMancato
 Start-WindowsUpdate
 try {
     if (Test-Path $BuildFile) { $buildInstallata = [int](Get-Content $BuildFile -Raw).Trim() }

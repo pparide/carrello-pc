@@ -1150,8 +1150,10 @@ if (-not $adm) {
     if (-not $Simula) {
         Enable-LocalUser -Name $AdminName -ErrorAction SilentlyContinue
         Add-LocalGroupMember -Group $grpAdmin -Member $AdminName -ErrorAction SilentlyContinue
-    }
-    Write-Log "Account $AdminName gia' presente: password invariata"
+        # la password dell'amministratore e' sempre quella del file Impostazioni-scuola.txt (uguale su tutti i PC)
+        try { Set-LocalUser -Name $AdminName -Password (ConvertTo-SecureString $adminPw -AsPlainText -Force) -ErrorAction Stop; Write-Log "Account $AdminName gia' presente: password allineata al file delle impostazioni" }
+        catch { Write-Log "Password di $AdminName non aggiornata: $($_.Exception.Message)" 'AVVISO' }
+    } else { Write-Log "[SIMULAZIONE] allineerei la password di $AdminName al file delle impostazioni" }
 }
 if (-not $Simula) {
     $a = Get-LocalUser -Name $AdminName -ErrorAction SilentlyContinue
