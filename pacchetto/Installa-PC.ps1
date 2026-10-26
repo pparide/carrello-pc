@@ -967,14 +967,8 @@ if ($Logon) {
     if (Test-Path -LiteralPath $lv) {
         & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $lv -Snapshot
     }
-    # al primo accesso Esplora risorse e' gia' partito con le impostazioni di Windows: lo si riavvia una volta (sfondo, barra a sinistra)
-    $mk = "Registry::HKEY_USERS\$sid\Software\Carrello"
-    if ((Get-ItemProperty -Path $mk -Name 'Applicato' -ErrorAction SilentlyContinue).Applicato -ne '1') {
-        Get-Process -IncludeUserName -Name explorer -ErrorAction SilentlyContinue | Where-Object { $_.UserName -like "*\$StudentName" } | Stop-Process -Force -ErrorAction SilentlyContinue
-        New-Item -Path $mk -Force | Out-Null
-        New-ItemProperty -Path $mk -Name 'Applicato' -PropertyType String -Value '1' -Force | Out-Null
-        Write-Log 'Primo accesso di Studente: Esplora risorse riavviato per applicare sfondo e barra'
-    }
+    # (nessun riavvio di Esplora risorse: sfondo e barra sono gia' scritti nel profilo dall'installazione; riavviarlo da qui lascerebbe il PC senza desktop)
+    New-Item -Path "Registry::HKEY_USERS\$sid\Software\Carrello" -Force -ErrorAction SilentlyContinue | Out-Null
     Set-ChromeShortcutArgs
     # Edge e Chrome ricreano il collegamento sul desktop al primo avvio: seconda pulizia dopo un minuto
     Get-ChildItem 'C:\Users\Public\Desktop' -Filter '*.lnk' -Force -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue
