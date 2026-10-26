@@ -253,7 +253,13 @@ if ($Classe) {
     $form.Add_FormClosing({ param($s, $e) if (-not $script:scelta) { $e.Cancel = $true } })
     $timer = New-Object System.Windows.Forms.Timer
     $timer.Interval = 800
-    $timer.Add_Tick({ $form.TopMost = $true; $form.Activate(); $form.BringToFront() })
+    $script:tick = 0
+    $timer.Add_Tick({
+        $script:tick++
+        $form.TopMost = $true; $form.Activate(); $form.BringToFront()
+        # all'accensione il menu Start puo' restare aperto sopra la finestra: nei primi secondi si chiude con Esc (e con un clic sul pannello)
+        if ($script:tick -in 2, 4, 7, 11) { try { [System.Windows.Forms.SendKeys]::SendWait('{ESC}') } catch { } }
+    })
     $timer.Start()
     [void]$form.ShowDialog()
     $timer.Stop()

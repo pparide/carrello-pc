@@ -1,5 +1,5 @@
 {
- "build": 8,
+ "build": 9,
  "versione": "2.1",
  "carrelli": [
   1,
@@ -16,10 +16,10 @@
   "INSTALLA.bat": "a8065615499c5a4cd8bbc883892f4479fefc17a8f9d0719500e50d57a4e7654d",
   "Installa-PC.ps1": "8fcb9370fd6f4d6051d2d5d219bfc5f63866aa00add1d2bfb5a76c730498440e",
   "Istruzioni-Studenti.txt": "f98c35ffee46a70c8fa80ebc954d57b809d211adc5b577ddeb285313d3da53d1",
-  "Lavori.ps1": "92ef82a2d1667e76ac1081fb56c9dfee4972880b8998b027fdfc1737472c2c3a",
-  "Rete-Veyon.txt": "64fc8f21c80d6d8d945e6f8106ed9679bf7777a7e93bc565fb4bed3a4538048e",
+  "Lavori.ps1": "a44599c87eb6380e21a274a19b15c0e7ee05f2dd50839b545ab6628782e1d53a",
+  "Rete-Veyon.txt": "7073863712eeb58bcc0d0151206ae20b1c232b73cf5a2af3320741b5fc4de1f0",
   "SIMULA.bat": "ef4b1603cfd0aa7e80b7ccd4793da132979ccebf269f5186a33e62ad3cbf5be9",
-  "VERSIONE.txt": "2c624232cdd221771294dfbb310aca000a0df6ac8b66b696d90ef06fdefb64a3",
+  "VERSIONE.txt": "19581e27de7ced00ff1ce50b2047e7a567c76b1cbaebabe5ef03f7c3017bb5b7",
   "Veyon-Carrello.ps1": "e6f87f2acf882667cb4a2b6bccd3b302584030931fcd5539bf2a8c53d8f69566",
   "Veyon-Comune.ps1": "3728f42d86dae400efb6de0bc4864f7804d280eda1a8a99f6f1096d40cd8fb40",
   "chiave-mac.pub": "0d7eaafdebfd2b9d34b6bac32440e8daceea107cb30f1500b9524ff26c1c26b2"

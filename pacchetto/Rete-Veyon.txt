@@ -1,6 +1,6 @@
 # Impostazioni di rete per Veyon (modificabili senza toccare gli script)
 # IP (o intervalli, o subnet) dei PC docenti: gli unici da cui i carrelli accettano Veyon (porta 11100). Separati da virgola.
-SubnetDocenti=192.168.110.245-192.168.110.250,192.168.20.139-192.168.20.150
+SubnetDocenti=192.168.110.245-192.168.110.250,192.168.20.138-192.168.20.150
 # Quanti PC ha ogni carrello
 PCCarrello1=14
 PCCarrello2=24
