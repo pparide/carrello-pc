@@ -611,6 +611,18 @@ function Reset-AdminShell([string]$sid) {
         Write-Log "Barra e Start dell'amministratore rifatti"
     } catch { Write-Log "Barra dell'amministratore non rifatta: $($_.Exception.Message)" 'AVVISO' }
 }
+# ora e fuso orario: Italia, con sincronizzazione automatica (alcuni PC nuovi hanno data e fuso sbagliati e il servizio dell'ora fermo)
+function Set-OraSistema {
+    if ($Simula) { Write-Log '[SIMULAZIONE] imposterei il fuso orario italiano e la sincronizzazione dell''ora'; return }
+    try {
+        if ((Get-TimeZone).Id -ne 'W. Europe Standard Time') { Set-TimeZone -Id 'W. Europe Standard Time'; Write-Log 'Fuso orario impostato: Europa occidentale (Italia)' }
+        Set-Service -Name w32time -StartupType Automatic -ErrorAction SilentlyContinue
+        if ((Get-Service w32time).Status -ne 'Running') { Start-Service w32time -ErrorAction SilentlyContinue }
+        & w32tm.exe /config /syncfromflags:manual /manualpeerlist:"time.windows.com,0x9 pool.ntp.org,0x9" /update 2>&1 | Out-Null
+        & w32tm.exe /resync /force 2>&1 | Out-Null
+        Write-Log ("Ora del PC sincronizzata: {0}" -f (Get-Date -Format 'yyyy-MM-dd HH:mm'))
+    } catch { Write-Log "Ora di sistema non sincronizzata: $($_.Exception.Message)" 'AVVISO' }
+}
 function Set-MachineConfig {
     foreach ($p in $MachinePolicies) { Set-RegValue $HKLM $p.P $p.N $p.T $p.V }
     Set-DefaultBrowser
@@ -1295,6 +1307,7 @@ Set-DefaultLayout $TaskbarXml $true
 
 # --- impostazioni di sistema
 Set-MachineConfig
+Set-OraSistema
 Set-PowerConfig
 Set-Autologon
 if ($ConBloccoProgrammi) { Set-Srp } else { Remove-Srp }
