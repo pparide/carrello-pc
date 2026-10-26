@@ -955,6 +955,14 @@ if ($Logon) {
     if (Test-Path -LiteralPath $lv) {
         & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $lv -Snapshot
     }
+    # al primo accesso Esplora risorse e' gia' partito con le impostazioni di Windows: lo si riavvia una volta (sfondo, barra a sinistra)
+    $mk = "Registry::HKEY_USERS\$sid\Software\Carrello"
+    if ((Get-ItemProperty -Path $mk -Name 'Applicato' -ErrorAction SilentlyContinue).Applicato -ne '1') {
+        Get-Process -IncludeUserName -Name explorer -ErrorAction SilentlyContinue | Where-Object { $_.UserName -like "*\$StudentName" } | Stop-Process -Force -ErrorAction SilentlyContinue
+        New-Item -Path $mk -Force | Out-Null
+        New-ItemProperty -Path $mk -Name 'Applicato' -PropertyType String -Value '1' -Force | Out-Null
+        Write-Log 'Primo accesso di Studente: Esplora risorse riavviato per applicare sfondo e barra'
+    }
     Set-ChromeShortcutArgs
     # Edge e Chrome ricreano il collegamento sul desktop al primo avvio: seconda pulizia dopo un minuto
     Get-ChildItem 'C:\Users\Public\Desktop' -Filter '*.lnk' -Force -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue
@@ -1300,8 +1308,13 @@ if ($admSid) {
 # --- impostazioni di Studente
 $sid = if ($stu) { $stu.SID.Value } else { 'S-1-5-21-SIMULATO' }
 $done = Use-UserHive $sid { param($root) Set-UserConfig $root }
-# il profilo di Studente NON si crea da script: nasce al primo accesso (accesso automatico) e prende barra e Start dal profilo Default
-if (-not $done) { Write-Log 'Profilo di Studente non ancora presente: nasce al primo accesso con barra e Start della scuola; i blocchi li scrive l''attivita'' di accesso' }
+# il profilo di Studente si crea ORA: cosi' sfondo, barra a sinistra e blocchi sono gia' scritti al primo accesso
+if (-not $done) {
+    New-StudentProfile $sid
+    $done = Use-UserHive $sid { param($root) Set-UserConfig $root }
+}
+if (-not $done) { Write-Log 'Profilo di Studente non disponibile: i blocchi saranno scritti al primo accesso' 'AVVISO' }
+Clear-DefaultLayout
 Set-LogonTask
 Set-ClassTask
 Set-NetTask
