@@ -157,6 +157,11 @@ if ($Snapshot) {
 if ($Classe) {
     Add-Type -AssemblyName System.Windows.Forms
     Add-Type -AssemblyName System.Drawing
+    # una sola finestra alla volta
+    $mx = New-Object System.Threading.Mutex($false, 'Local\CarrelloClasse')
+    if (-not $mx.WaitOne(0)) { exit 0 }
+    # a ogni nuovo accesso (o a ogni "Cambia classe") la scelta precedente si azzera
+    Remove-ItemProperty -Path 'HKCU:\Software\Carrello' -Name 'Classe', 'ClasseOra' -ErrorAction SilentlyContinue
     $file = Join-Path $Base 'Classi.txt'
     $classi = @()
     if (Test-Path -LiteralPath $file) {
@@ -165,29 +170,6 @@ if ($Classe) {
     if ($classi.Count -eq 0) { exit 0 }
     $classi = $classi + 'Altro'
 
-    $form = New-Object System.Windows.Forms.Form
-    $form.Text = 'Scegli la tua classe'
-    $form.StartPosition = 'CenterScreen'
-    $form.TopMost = $true
-    $form.ControlBox = $false
-    $form.FormBorderStyle = 'FixedDialog'
-    $form.BackColor = [System.Drawing.Color]::White
-    $cols = 7; $bw = 92; $bh = 52; $gap = 10
-    $rows = [math]::Ceiling($classi.Count / $cols)
-    $form.ClientSize = New-Object System.Drawing.Size(($cols * ($bw + $gap) + $gap), (110 + $rows * ($bh + $gap) + 40))
-
-    $t1 = New-Object System.Windows.Forms.Label
-    $t1.Text = 'Che classe siete?'
-    $t1.Font = New-Object System.Drawing.Font('Segoe UI', 18, [System.Drawing.FontStyle]::Bold)
-    $t1.AutoSize = $true; $t1.Location = New-Object System.Drawing.Point(12, 10)
-    $form.Controls.Add($t1)
-    $t2 = New-Object System.Windows.Forms.Label
-    $t2.Text = "Clicca la tua classe: il collegamento Lavori si apre sulla cartella della classe.`r`nATTENZIONE: tutte le modifiche ai file in Lavori sono REGISTRATE (PC, classe, ora)."
-    $t2.Font = New-Object System.Drawing.Font('Segoe UI', 10)
-    $t2.AutoSize = $true; $t2.Location = New-Object System.Drawing.Point(14, 50)
-    $form.Controls.Add($t2)
-
-    $script:scelta = $null
     # classi gia' in uso dagli altri PC dello stesso carrello (ricevute via rete)
     $script:altre = @{}
     try {
@@ -196,30 +178,85 @@ if ($Classe) {
             foreach ($c in ((Get-Content -LiteralPath $pf -Raw -Encoding UTF8 | ConvertFrom-Json).classi)) { $script:altre[[string]$c.classe] = @($c.pc).Count }
         }
     } catch { }
+
+    # finestra a tutto schermo, sempre in primo piano: senza scegliere la classe il PC non si usa
+    $form = New-Object System.Windows.Forms.Form
+    $form.Text = 'Scegli la tua classe'
+    $form.FormBorderStyle = 'None'
+    $form.StartPosition = 'Manual'
+    $form.Bounds = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+    $form.TopMost = $true
+    $form.ShowInTaskbar = $false
+    $form.BackColor = [System.Drawing.Color]::FromArgb(24, 44, 78)
+
+    $corte = @($classi | Where-Object { $_.Length -le 5 })
+    $lunghe = @($classi | Where-Object { $_.Length -gt 5 })
+    $cols = 7; $bw = 100; $bh = 56; $gap = 10
+    $pw = $cols * ($bw + $gap) + $gap
+    $righe = [math]::Ceiling($corte.Count / $cols)
+    $ph = 150 + $righe * ($bh + $gap) + $lunghe.Count * ($bh + $gap) + 20
+    $panel = New-Object System.Windows.Forms.Panel
+    $panel.BackColor = [System.Drawing.Color]::White
+    $panel.Size = New-Object System.Drawing.Size($pw, $ph)
+    $panel.Location = New-Object System.Drawing.Point([int](($form.Width - $pw) / 2), [int](($form.Height - $ph) / 2))
+    $form.Controls.Add($panel)
+
+    $t1 = New-Object System.Windows.Forms.Label
+    $t1.Text = 'Che classe siete?'
+    $t1.Font = New-Object System.Drawing.Font('Segoe UI', 22, [System.Drawing.FontStyle]::Bold)
+    $t1.AutoSize = $true; $t1.Location = New-Object System.Drawing.Point(14, 12)
+    $panel.Controls.Add($t1)
+    $t2 = New-Object System.Windows.Forms.Label
+    $t2.Text = "Clicca la tua classe per usare il PC: il collegamento Lavori si apre sulla cartella della classe.`r`nATTENZIONE: tutte le modifiche ai file in Lavori sono REGISTRATE (PC, classe, ora)."
+    $t2.Font = New-Object System.Drawing.Font('Segoe UI', 11)
+    $t2.AutoSize = $true; $t2.Location = New-Object System.Drawing.Point(16, 62)
+    $panel.Controls.Add($t2)
+
+    $script:scelta = $null
+    $clic = {
+        param($s, $e)
+        $c = [string]$s.Tag
+        $diverse = @($script:altre.Keys | Where-Object { $_ -ne $c })
+        if ($c -ne 'Altro' -and $diverse.Count -gt 0) {
+            $txt = "In questo carrello ci sono GIA' PC accesi della classe: " + (($diverse | Sort-Object) -join ', ') + ".`r`n`r`nVuoi davvero scegliere la classe $c ? (La scelta viene registrata.)"
+            $r = [System.Windows.Forms.MessageBox]::Show($form, $txt, 'Attenzione: classi diverse nel carrello', 'YesNo', 'Warning')
+            if ($r -ne 'Yes') { return }
+        }
+        $script:scelta = $c
+        $form.Close()
+    }
     $i = 0
-    foreach ($c in $classi) {
+    foreach ($c in $corte) {
         $b = New-Object System.Windows.Forms.Button
         $b.Text = $c
         $b.Font = New-Object System.Drawing.Font('Segoe UI', 14, [System.Drawing.FontStyle]::Bold)
         $b.Size = New-Object System.Drawing.Size($bw, $bh)
-        $b.Location = New-Object System.Drawing.Point(($gap + ($i % $cols) * ($bw + $gap)), (100 + [math]::Floor($i / $cols) * ($bh + $gap)))
+        $b.Location = New-Object System.Drawing.Point(($gap + ($i % $cols) * ($bw + $gap)), (120 + [math]::Floor($i / $cols) * ($bh + $gap)))
         $b.Tag = $c
-        $b.Add_Click({
-            param($s, $e)
-            $c = [string]$s.Tag
-            $diverse = @($script:altre.Keys | Where-Object { $_ -ne $c })
-            if ($c -ne 'Altro' -and $diverse.Count -gt 0) {
-                $txt = "In questo carrello ci sono GIA' PC accesi della classe: " + (($diverse | Sort-Object) -join ', ') + ".`r`n`r`nVuoi davvero scegliere la classe $c ? (La scelta viene registrata.)"
-                $r = [System.Windows.Forms.MessageBox]::Show($txt, 'Attenzione: classi diverse nel carrello', 'YesNo', 'Warning')
-                if ($r -ne 'Yes') { return }
-            }
-            $script:scelta = $c
-            $form.Close()
-        })
-        $form.Controls.Add($b)
+        $b.Add_Click($clic)
+        $panel.Controls.Add($b)
         $i++
     }
+    $y = 120 + $righe * ($bh + $gap)
+    foreach ($c in $lunghe) {
+        $b = New-Object System.Windows.Forms.Button
+        $b.Text = $c
+        $b.Font = New-Object System.Drawing.Font('Segoe UI', 14, [System.Drawing.FontStyle]::Bold)
+        $b.Size = New-Object System.Drawing.Size(($pw - 2 * $gap), $bh)
+        $b.Location = New-Object System.Drawing.Point($gap, $y)
+        $b.Tag = $c
+        $b.Add_Click($clic)
+        $panel.Controls.Add($b)
+        $y += $bh + $gap
+    }
+    # non si chiude senza una scelta (neanche con Alt+F4) e resta sopra tutto
+    $form.Add_FormClosing({ param($s, $e) if (-not $script:scelta) { $e.Cancel = $true } })
+    $timer = New-Object System.Windows.Forms.Timer
+    $timer.Interval = 800
+    $timer.Add_Tick({ $form.TopMost = $true; $form.Activate(); $form.BringToFront() })
+    $timer.Start()
     [void]$form.ShowDialog()
+    $timer.Stop()
     if (-not $script:scelta) { exit 0 }
 
     $cartella = Join-Path $LavoriDir $script:scelta

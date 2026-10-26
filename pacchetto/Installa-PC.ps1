@@ -281,6 +281,8 @@ Add-MP 'SOFTWARE\Policies\Microsoft\Windows\WindowsCopilot' 'TurnOffWindowsCopil
 Add-MP 'SOFTWARE\Policies\Microsoft\EdgeUpdate' 'Install{56EB18F8-B008-4CBD-B6D2-8C97FE7E9062}' 'DWord' 0
 Add-MP 'SOFTWARE\Microsoft\EdgeUpdate' 'DoNotUpdateToEdgeWithChromium' 'DWord' 1
 Add-MP 'SOFTWARE\Policies\Microsoft\EdgeUpdate' 'CreateDesktopShortcutDefault' 'DWord' 0
+# scelta della classe a ogni accesso di Studente (indipendente dall'attivita' di accesso)
+Add-MP 'SOFTWARE\Microsoft\Windows\CurrentVersion\Run' 'CarrelloClasse' 'String' 'schtasks.exe /run /tn Carrello-Classe'
 # Chrome: sempre in modalita' ospite (alla chiusura cancella cronologia, cookie e dati), Google come motore di ricerca
 $ChromeP = 'SOFTWARE\Policies\Google\Chrome'
 Add-MP $ChromeP 'BrowserGuestModeEnabled'  'DWord' 1
@@ -420,6 +422,22 @@ function Install-GeoGebra {
     } catch { Write-Log "GeoGebra non installato: $($_.Exception.Message)" 'AVVISO' }
 }
 
+# Scratch 3 (editor): installatore ufficiale (downloads.scratch.mit.edu), silenzioso, per tutti gli utenti; hash fissato
+function Install-Scratch {
+    $sm = Join-Path $env:ProgramData 'Microsoft\Windows\Start Menu\Programs'
+    if (Get-ChildItem -LiteralPath $sm -Recurse -Filter 'Scratch 3.lnk' -ErrorAction SilentlyContinue | Select-Object -First 1) { Write-Log 'Scratch 3 gia'' presente'; return }
+    $exe = Join-Path (Join-Path $PSScriptRoot 'Installer') 'Scratch-Setup.exe'
+    if (-not (Test-Path -LiteralPath $exe)) { Write-Log 'Scratch non installato: manca Installer\Scratch-Setup.exe' 'AVVISO'; return }
+    if ($Simula) { Write-Log '[SIMULAZIONE] installerei Scratch 3'; return }
+    $atteso = '7099efbcf059f880c4f48a5b2238f6f30482a8e75d0aa0c5424dda95f4a61924'
+    if ((Get-FileHash -LiteralPath $exe -Algorithm SHA256).Hash.ToLower() -ne $atteso) { Write-Log 'Scratch non installato: l''installatore ha un hash diverso da quello atteso' 'AVVISO'; return }
+    try {
+        $p = Start-Process -FilePath $exe -ArgumentList '/S', '/allusers' -PassThru -WindowStyle Hidden
+        if (-not $p.WaitForExit(300000)) { Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue; Write-Log 'Installazione di Scratch troppo lunga, interrotta' 'AVVISO'; return }
+        Write-Log ("Scratch 3 installato (codice {0})" -f $p.ExitCode)
+    } catch { Write-Log "Scratch non installato: $($_.Exception.Message)" 'AVVISO' }
+}
+
 # Chrome (modalita' ospite): senza queste opzioni a ogni apertura chiede di scegliere il motore di ricerca
 function Set-ChromeShortcutArgs {
     if ($Simula) { Write-Log '[SIMULAZIONE] metterei le opzioni nel collegamento di Chrome'; return }
@@ -444,7 +462,7 @@ function New-TaskbarLayout([string]$Kind = 'Studente') {
     $pins = New-Object System.Collections.Generic.List[string]
     $startPins = New-Object System.Collections.Generic.List[object]
     $patterns = if ($Kind -eq 'Admin') { @('#EXPLORER#', 'Google Chrome.lnk', 'Word.lnk', 'Excel.lnk', '#POWERSHELL#', '#SETTINGS#') }
-                else { @('Word.lnk', 'Excel.lnk', 'PowerPoint.lnk', 'GeoGebra*.lnk', 'Google Chrome.lnk', '#CALC#', 'Scratch*.lnk') }
+                else { @('Word.lnk', 'Excel.lnk', 'PowerPoint.lnk', 'GeoGebra*.lnk', 'Google Chrome.lnk', '#CALC#', 'Scratch 3.lnk') }
     foreach ($pat in $patterns) {
         if ($pat -eq '#EXPLORER#') {
             $pins.Add('        <taskbar:DesktopApp DesktopApplicationID="Microsoft.Windows.Explorer" />')
@@ -641,7 +659,8 @@ function Set-LogonTask {
     $action    = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument $arg
     $trigger   = New-ScheduledTaskTrigger -AtLogOn
     $principal = New-ScheduledTaskPrincipal -UserId 'SYSTEM' -LogonType ServiceAccount -RunLevel Highest
-    $settings  = New-ScheduledTaskSettingsSet -ExecutionTimeLimit (New-TimeSpan -Minutes 5) -StartWhenAvailable
+    # i PC dei carrelli vanno spesso a batteria: l'attivita' deve partire anche senza alimentazione
+    $settings  = New-ScheduledTaskSettingsSet -ExecutionTimeLimit (New-TimeSpan -Minutes 10) -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
     Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Force | Out-Null
 }
 function Set-UpdateTask {
@@ -862,9 +881,12 @@ if ($Logon) {
             Move-ToBackup "$prof\Downloads" 'Download'
             try {
                 $ws  = New-Object -ComObject WScript.Shell
-                $lnk = $ws.CreateShortcut("$prof\Desktop\Lavori.lnk")
-                $lnk.TargetPath = $LavoriDir
-                $lnk.Save()
+                # il collegamento Lavori lo imposta la scelta della classe; qui solo un valore di partenza
+                if (-not (Get-ItemProperty -Path "Registry::HKEY_USERS\$sid\Software\Carrello" -Name 'Classe' -ErrorAction SilentlyContinue).Classe) {
+                    $lnk = $ws.CreateShortcut("$prof\Desktop\Lavori.lnk")
+                    $lnk.TargetPath = $LavoriDir
+                    $lnk.Save()
+                }
             } catch { }
             # collegamento "Cambia classe" (avvia l'attivita' a richiesta: da qui PowerShell non si puo' lanciare)
             try {
@@ -907,20 +929,18 @@ if ($Logon) {
     }
     Write-Log 'Accesso di Studente: blocchi riapplicati, desktop e download puliti'
     # a ogni accensione la classe va scelta di nuovo
-    Remove-ItemProperty -Path "Registry::HKEY_USERS\$sid\Software\Carrello" -Name 'Classe', 'ClasseOra' -ErrorAction SilentlyContinue
     # copia giornaliera di Lavori e registro delle modifiche, poi la scelta della classe
     $lv = Join-Path $Base 'Lavori.ps1'
     if (Test-Path -LiteralPath $lv) {
         & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $lv -Snapshot
-        Start-ScheduledTask -TaskName $ClassTaskName -ErrorAction SilentlyContinue
     }
     Set-ChromeShortcutArgs
     # Edge e Chrome ricreano il collegamento sul desktop al primo avvio: seconda pulizia dopo un minuto
-    Get-ChildItem 'C:\Users\Public\Desktop' -Filter '*.lnk' -Force -ErrorAction SilentlyContinue | Where-Object { $_.Name -like 'Microsoft Edge*' } | Remove-Item -Force -ErrorAction SilentlyContinue
+    Get-ChildItem 'C:\Users\Public\Desktop' -Filter '*.lnk' -Force -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue
     Start-Sleep -Seconds 60
     $prof2 = (Get-CimInstance Win32_UserProfile -Filter "SID='$sid'" -ErrorAction SilentlyContinue).LocalPath
     if ($prof2) { Move-ToBackup "$prof2\Desktop" 'Desktop' }
-    Get-ChildItem 'C:\Users\Public\Desktop' -Filter '*.lnk' -Force -ErrorAction SilentlyContinue | Where-Object { $_.Name -like 'Microsoft Edge*' } | Remove-Item -Force -ErrorAction SilentlyContinue
+    Get-ChildItem 'C:\Users\Public\Desktop' -Filter '*.lnk' -Force -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue
     exit 0
 }
 
@@ -1229,6 +1249,7 @@ else {
 # --- sfondo con il numero del PC
 New-WallpaperImage $WallFile $newName $Carrello
 Install-GeoGebra
+Install-Scratch
 # --- barra e Start dell'amministratore (il layout vale solo al primo accesso: si crea il profilo ora se manca)
 $admSid = (Get-LocalUser -Name $AdminName -ErrorAction SilentlyContinue).SID.Value
 if (-not $Aggiorna) {
@@ -1379,7 +1400,7 @@ function Show-Verifica {
     Add-Check 'Chrome installato' { Test-Path "$env:ProgramFiles\Google\Chrome\Application\chrome.exe" }
     foreach ($a in 'Word', 'Excel', 'PowerPoint') { $nn = "$a.lnk"; $blk = { & $hasLnk $nn }.GetNewClosure(); Add-Check "$a installato" $blk }
     Add-Check 'GeoGebra installato' { & $hasLnk 'GeoGebra*.lnk' }
-    Add-Check 'Scratch installato' { & $hasLnk 'Scratch*.lnk' }
+    Add-Check 'Scratch 3 installato' { & $hasLnk 'Scratch 3.lnk' }
     Add-Check 'Chrome in modalita'' ospite con Google' { (Get-ItemProperty 'HKLM:\SOFTWARE\Policies\Google\Chrome').BrowserGuestModeEnforced -eq 1 }
     Add-Check 'Aggiornamento automatico dello script (attivita)' { Get-ScheduledTask -TaskName $UpdTaskName }
     Add-Check 'Attivita di accesso, scelta classe e scambio classi' { (Get-ScheduledTask -TaskName $TaskName) -and (Get-ScheduledTask -TaskName $ClassTaskName) -and (Get-ScheduledTask -TaskName $NetTaskName) }
