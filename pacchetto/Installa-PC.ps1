@@ -422,6 +422,27 @@ function Install-GeoGebra {
     } catch { Write-Log "GeoGebra non installato: $($_.Exception.Message)" 'AVVISO' }
 }
 
+# Word, Excel, PowerPoint: su alcuni PC Office c'e' ma manca il collegamento nel menu Start di sistema: lo si crea
+function Install-OfficeShortcuts {
+    if ($Simula) { return }
+    $sm = Join-Path $env:ProgramData 'Microsoft\Windows\Start Menu\Programs'
+    $apps = @(@('Word', 'WINWORD.EXE'), @('Excel', 'EXCEL.EXE'), @('PowerPoint', 'POWERPNT.EXE'))
+    foreach ($a in $apps) {
+        $lnk = Join-Path $sm ($a[0] + '.lnk')
+        if (Get-ChildItem -LiteralPath $sm -Recurse -Filter ($a[0] + '.lnk') -ErrorAction SilentlyContinue | Select-Object -First 1) { continue }
+        $exe = @("$env:ProgramFiles\Microsoft Office\root\Office16\$($a[1])", "${env:ProgramFiles(x86)}\Microsoft Office\root\Office16\$($a[1])") | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
+        if (-not $exe) { Write-Log "$($a[0]): programma non trovato (Office non installato?)" 'AVVISO'; continue }
+        try {
+            $w = New-Object -ComObject WScript.Shell
+            $l = $w.CreateShortcut($lnk)
+            $l.TargetPath = $exe
+            $l.IconLocation = "$exe,0"
+            $l.Save()
+            Write-Log "Collegamento di $($a[0]) creato nel menu Start"
+        } catch { Write-Log "Collegamento di $($a[0]) non creato: $($_.Exception.Message)" 'AVVISO' }
+    }
+}
+
 # Scratch 3 (editor): installatore ufficiale (downloads.scratch.mit.edu), silenzioso, per tutti gli utenti; hash fissato
 function Install-Scratch {
     $sm = Join-Path $env:ProgramData 'Microsoft\Windows\Start Menu\Programs'
@@ -1250,6 +1271,7 @@ else {
 New-WallpaperImage $WallFile $newName $Carrello
 Install-GeoGebra
 Install-Scratch
+Install-OfficeShortcuts
 # --- barra e Start dell'amministratore (il layout vale solo al primo accesso: si crea il profilo ora se manca)
 $admSid = (Get-LocalUser -Name $AdminName -ErrorAction SilentlyContinue).SID.Value
 if (-not $Aggiorna) {
