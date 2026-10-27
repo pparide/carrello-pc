@@ -15,3 +15,5 @@ SshDa=192.168.110.0/24
 WifiClasse=SanTommaso_WiFi
 # Salvaschermo standard (vuoto, senza password) dopo tot minuti di inattivita'; 0 = nessun salvaschermo. I docenti non possono cambiarlo.
 ScreensaverMinuti=10
+# Ordine del desktop: i file non essenziali vanno nella cartella 'File trovati sul desktop'. Ogni quanti giorni (all'avvio del PC): 1 = ogni avvio, 7 = settimanale, 0 = solo all'installazione.
+OrdinaGiorni=7

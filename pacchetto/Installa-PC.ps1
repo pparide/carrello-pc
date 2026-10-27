@@ -633,14 +633,16 @@ function Set-PowerConfig {
     try {
         foreach ($m in 'ac', 'dc') {
             & powercfg.exe "/set${m}valueindex" SCHEME_CURRENT SUB_BUTTONS LIDACTION 3 | Out-Null
-            & powercfg.exe "/set${m}valueindex" SCHEME_CURRENT SUB_BUTTONS PBUTTONACTION 3 | Out-Null
+            # il tasto di accensione non spegne piu' il PC (si premeva per sbaglio in classe): si arresta dal menu Start; il coperchio chiuso invece arresta
+            & powercfg.exe "/set${m}valueindex" SCHEME_CURRENT SUB_BUTTONS PBUTTONACTION 0 | Out-Null
+            & powercfg.exe "/set${m}valueindex" SCHEME_CURRENT SUB_BUTTONS SBUTTONACTION 0 | Out-Null
             & powercfg.exe "/set${m}valueindex" SCHEME_CURRENT SUB_SLEEP STANDBYIDLE 0 | Out-Null
         }
         & powercfg.exe /setacvalueindex SCHEME_CURRENT SUB_SLEEP HIBERNATEIDLE 0 | Out-Null
         & powercfg.exe /setdcvalueindex SCHEME_CURRENT SUB_SLEEP HIBERNATEIDLE 1800 | Out-Null
         & powercfg.exe /setdcvalueindex SCHEME_CURRENT SUB_BATTERY BATACTIONCRIT 2 | Out-Null
         & powercfg.exe /setactive SCHEME_CURRENT | Out-Null
-        Write-Log 'Alimentazione: coperchio e tasto = arresto; a batteria ibernazione dopo 30 minuti'
+        Write-Log 'Alimentazione: coperchio = arresto, tasto di accensione = niente; a batteria ibernazione dopo 30 minuti'
     } catch { Write-Log "Alimentazione non impostata: $($_.Exception.Message)" 'AVVISO' }
 }
 function Remove-MachineConfig {

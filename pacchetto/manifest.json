@@ -1,5 +1,5 @@
 {
- "build": 10,
+ "build": 11,
  "versione": "2.1",
  "carrelli": [
   1,
@@ -14,14 +14,15 @@
   "ElencoApp-da-rimuovere.txt": "6aa262b2523eec18db53975e194ced4b090329132dcb818b146fe58edaa3265c",
   "ElencoProgrammi-da-rimuovere.txt": "04f16e7dce6b19f476fbda964c1b47d247f18d38158084e1e731bfaca00f6190",
   "INSTALLA.bat": "a8065615499c5a4cd8bbc883892f4479fefc17a8f9d0719500e50d57a4e7654d",
-  "Installa-PC.ps1": "d4da5e9f0e601e979948c48f5d1daaaab83bb87b665f3c5354a5bc8589a3e73d",
+  "Installa-PC.ps1": "d25a482cf61d781af38b157a0d125fe5bd2ce095c8a7decba90261c02b943b63",
   "Istruzioni-Studenti.txt": "f98c35ffee46a70c8fa80ebc954d57b809d211adc5b577ddeb285313d3da53d1",
   "Lavori.ps1": "a44599c87eb6380e21a274a19b15c0e7ee05f2dd50839b545ab6628782e1d53a",
-  "Rete-Veyon.txt": "7073863712eeb58bcc0d0151206ae20b1c232b73cf5a2af3320741b5fc4de1f0",
+  "Rete-Veyon.txt": "6bb4f98f54016cac6283d62d24d1748a75ab59e625481122ad5ab70a9eee7e99",
   "SIMULA.bat": "ef4b1603cfd0aa7e80b7ccd4793da132979ccebf269f5186a33e62ad3cbf5be9",
-  "VERSIONE.txt": "4a44dc15364204a80fe80e9039455cc1608281820fe2b24f1e5233ade6af1dd5",
+  "VERSIONE.txt": "4fc82b26aecb47d2868c4efbe3581732a3e7cbcc6c2efb32062c08170a05eeb8",
   "Veyon-Carrello.ps1": "e6f87f2acf882667cb4a2b6bccd3b302584030931fcd5539bf2a8c53d8f69566",
-  "Veyon-Comune.ps1": "3728f42d86dae400efb6de0bc4864f7804d280eda1a8a99f6f1096d40cd8fb40",
-  "chiave-mac.pub": "0d7eaafdebfd2b9d34b6bac32440e8daceea107cb30f1500b9524ff26c1c26b2"
+  "Veyon-Comune.ps1": "2eb8240edf97465c20cea830f0becdd7e7b144a42834180466f283c8a92096a8",
+  "chiave-mac.pub": "0d7eaafdebfd2b9d34b6bac32440e8daceea107cb30f1500b9524ff26c1c26b2",
+  "veyon-docenti-pubblica.key": "cccbe72ed523c43fa5b8163e6138eaafb1417c70708e2bc512046d55dc0b6da7"
  }
 }

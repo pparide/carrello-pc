@@ -35,6 +35,7 @@ function Get-ReteVeyon([string]$dir) {
         SshDa         = 'LocalSubnet'
         WifiClasse    = 'SanTommaso_WiFi'
         ScreensaverMinuti = '10'
+        OrdinaGiorni  = '7'
     }
     $f = Join-Path $dir 'Rete-Veyon.txt'
     if (Test-Path -LiteralPath $f) {
@@ -182,4 +183,38 @@ function Enable-SshRemoto([string]$dir, [string]$remote) {
         if ((Get-Service sshd).Status -ne 'Running') { Start-Service sshd } elseif ($restart) { Restart-Service sshd }
         Write-VLog 'Gestione remota (SSH con chiave) attiva'
     } catch { Write-VLog "SSH non configurato: $($_.Exception.Message)" 'AVVISO' }
+}
+
+# elenco dei PC dei carrelli nel Master: indirizzi reali da Carrelli-IP.txt ("nome indirizzo", riscritto da Trova-PC.sh),
+# altrimenti lo schema di Rete-Veyon.txt (HostCarrello1/2). Ritorna il numero di PC inseriti.
+function New-ElencoVeyon([string]$dir) {
+    $rete = Get-ReteVeyon $dir
+    $mappa = @{}
+    $f = Join-Path $dir 'Carrelli-IP.txt'
+    if (Test-Path -LiteralPath $f) {
+        foreach ($l in (Get-Content -LiteralPath $f)) {
+            $t = ($l -replace '#.*$', '').Trim()
+            if ($t -match '^(C\d-\d{2})\s+(\S+)') { $mappa[$Matches[1].ToUpper()] = $Matches[2] }
+        }
+    }
+    Invoke-VeyonCli networkobjects clear | Out-Null
+    $n = 0
+    foreach ($c in 1, 2) {
+        $loc = "Carrello $c"
+        Invoke-VeyonCli networkobjects add location $loc | Out-Null
+        $tot = [int]$rete["PCCarrello$c"]
+        # i numeri previsti (1..PCCarrelloN) e, in piu', ogni PC trovato in rete con un numero diverso (es. C1-17 se il carrello ne ha piu' del previsto)
+        $numeri = New-Object System.Collections.Generic.SortedSet[int]
+        for ($i = 1; $i -le $tot; $i++) { [void]$numeri.Add($i) }
+        foreach ($k in $mappa.Keys) { if ($k -match ('^C{0}-(\d{{2}})$' -f $c)) { [void]$numeri.Add([int]$Matches[1]) } }
+        foreach ($i in $numeri) {
+            $nome = 'C{0}-{1:00}' -f $c, $i
+            $indirizzo = $mappa[$nome]
+            if (-not $indirizzo) { $indirizzo = Expand-HostPattern $rete["HostCarrello$c"] $i }
+            # l'indirizzo MAC non serve ma non puo' essere vuoto: un argomento vuoto sparirebbe e il Master non vedrebbe i PC
+            Invoke-VeyonCli networkobjects add computer $nome $indirizzo '00:00:00:00:00:00' $loc | Out-Null
+            $n++
+        }
+    }
+    return $n
 }
