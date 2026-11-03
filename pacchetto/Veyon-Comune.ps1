@@ -35,7 +35,7 @@ function Get-ReteVeyon([string]$dir) {
         SshDa         = 'LocalSubnet'
         WifiClasse    = 'SanTommaso_WiFi'
         ScreensaverMinuti = '10'
-        OrdinaGiorni  = '7'
+        OrdinaOra     = '14:00'
     }
     $f = Join-Path $dir 'Rete-Veyon.txt'
     if (Test-Path -LiteralPath $f) {

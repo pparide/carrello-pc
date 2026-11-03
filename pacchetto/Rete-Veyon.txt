@@ -2,12 +2,12 @@
 # IP (o intervalli, o subnet) dei PC docenti: gli unici da cui i carrelli accettano Veyon (porta 11100). Separati da virgola.
 SubnetDocenti=192.168.110.245-192.168.110.250,192.168.20.138-192.168.20.150
 # Quanti PC ha ogni carrello
-PCCarrello1=14
-PCCarrello2=24
+PCCarrello1=23
+PCCarrello2=15
 # Indirizzo dei PC come lo vede il Master. {nn} = numero a 2 cifre, {n+100} = numero + 100.
 # Esempi: c1-{nn}   oppure   192.168.110.{n+100}
 HostCarrello1=192.168.110.{n+200}
-HostCarrello2=192.168.110.{n+220}
+HostCarrello2=192.168.110.{n+224}
 # Da dove il Mac puo' entrare in SSH sui PC docenti (LocalSubnet oppure subnet separate da virgola)
 SshDa=192.168.110.0/24
 # Rete Wi-Fi dei PC di classe (nome esatto). Dove c'e' il cavo LAN, il cavo ha SEMPRE la precedenza sul Wi-Fi.
@@ -15,5 +15,5 @@ SshDa=192.168.110.0/24
 WifiClasse=SanTommaso_WiFi
 # Salvaschermo standard (vuoto, senza password) dopo tot minuti di inattivita'; 0 = nessun salvaschermo. I docenti non possono cambiarlo.
 ScreensaverMinuti=10
-# Ordine del desktop: i file non essenziali vanno nella cartella 'File trovati sul desktop'. Ogni quanti giorni (all'avvio del PC): 1 = ogni avvio, 7 = settimanale, 0 = solo all'installazione.
-OrdinaGiorni=7
+# Ordine del desktop: i file lasciati sul Desktop vanno in 'File trovati sul desktop' all'avvio del PC e ogni giorno a quest'ora (vuoto = solo all'avvio).
+OrdinaOra=14:00

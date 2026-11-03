@@ -62,8 +62,10 @@ if ($chiusa) {
 
 try {
     Stop-Service VeyonService -ErrorAction SilentlyContinue
+    # idempotente: se la chiave c'e' gia' (o e' diversa) la sostituisco, altrimenti l'import fallisce e il servizio resta fermo
+    Invoke-VeyonCli authkeys delete "$($script:VeyonChiave)/public" | Out-Null
     $r = Invoke-VeyonCli authkeys import "$($script:VeyonChiave)/public" $pub
-    if ($r.Code -ne 0) { Write-VLog "Import della chiave pubblica non riuscito: $($r.Output)" 'ERRORE'; exit 1 }
+    if ($r.Code -ne 0) { Write-VLog "Import della chiave pubblica non riuscito: $($r.Output)" 'ERRORE'; Start-Service VeyonService -ErrorAction SilentlyContinue; exit 1 }
 
     Set-VeyonConfig 'Authentication/Method' '1'                    # 1 = chiave
     Set-VeyonConfig 'Network/VeyonServerPort' '11100'

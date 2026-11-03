@@ -812,6 +812,21 @@ function Enable-RemoteAccess {
     } catch { Write-Log "Gestione remota non configurata: $($_.Exception.Message)" 'AVVISO' }
 }
 
+# SSH e Veyon partono ritardati (dopo la Wi-Fi) e si riavviano da soli se si fermano: su PC a batteria con Wi-Fi lenta all'accensione si fermavano
+function Set-ServiziAffidabili {
+    if ($Simula) { Write-Log '[SIMULAZIONE] imposterei avvio ritardato e riavvio automatico di SSH e Veyon'; return }
+    foreach ($n in 'sshd', 'VeyonService') {
+        if (-not (Get-Service -Name $n -ErrorAction SilentlyContinue)) { continue }
+        try {
+            # Veyon "chiuso" (senza chiave) ha il servizio disattivato: non va riattivato da qui
+            if ((Get-Service -Name $n).StartType -ne 'Disabled') { & sc.exe config $n start= delayed-auto | Out-Null }
+            & sc.exe failure $n reset= 86400 actions= restart/10000/restart/10000/restart/30000 | Out-Null
+            & sc.exe failureflag $n 1 | Out-Null
+        } catch { Write-Log "Servizio ${n}: affidabilita' non impostata: $($_.Exception.Message)" 'AVVISO' }
+    }
+    Write-Log 'SSH e Veyon: avvio ritardato e riavvio automatico impostati'
+}
+
 # Wi-Fi: connessione automatica per tutte le reti salvate
 function Set-WifiAuto {
     if ($Simula) { Write-Log '[SIMULAZIONE] imposterei la connessione automatica delle reti Wi-Fi salvate'; return }
@@ -1346,6 +1361,7 @@ if (Test-Path -LiteralPath (Join-Path $vd 'Veyon-Carrello.ps1')) {
         Write-Log ("Veyon Service: codice di uscita {0} (dettagli nelle righe VEYON del registro)" -f $vp.ExitCode) $(if ($vp.ExitCode -eq 0) { 'INFO' } else { 'AVVISO' })
     } catch { Write-Log "Veyon non configurato: $($_.Exception.Message)" 'AVVISO' }
 } else { Write-Log 'Veyon: script non trovati (cartella Docenti): saltato' 'AVVISO' }
+Set-ServiziAffidabili
 
 # --- rimozione app e programmi
 $apps = @(Get-PatternList (Join-Path $PSScriptRoot 'ElencoApp-da-rimuovere.txt'))
